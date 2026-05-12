@@ -1,0 +1,109 @@
+@import url('https://fonts.googleapis.com/css2?family=Source+Serif+Pro:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Roboto:wght@400;500;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bloom-aubergine: 273 47% 11%;
+    --bloom-cream: 28 41% 91%;
+    --bloom-cream-deep: 28 36% 88%;
+    --bloom-sky: 202 41% 73%;
+    --bloom-plum: 281 42% 21%;
+    --bloom-garnet: 336 63% 29%;
+    --bloom-terracotta: 14 56% 49%;
+
+    --background: 28 41% 91%;
+    --foreground: 273 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 273 47% 11%;
+
+    --popover: 28 41% 91%;
+    --popover-foreground: 273 47% 11%;
+
+    --primary: 336 63% 29%;
+    --primary-foreground: 28 41% 91%;
+
+    --secondary: 28 36% 88%;
+    --secondary-foreground: 273 47% 11%;
+
+    --muted: 28 36% 88%;
+    --muted-foreground: 273 20% 30%;
+
+    --accent: 202 41% 73%;
+    --accent-foreground: 273 47% 11%;
+
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 28 41% 91%;
+
+    --border: 273 15% 80%;
+    --input: 273 15% 80%;
+    --ring: 336 63% 29%;
+
+    --radius: 0.875rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Roboto', system-ui, sans-serif;
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4, h5 {
+    font-family: 'Source Serif Pro', Georgia, serif;
+    font-weight: 400;
+    letter-spacing: -0.015em;
+    line-height: 1.05;
+  }
+
+  em {
+    font-style: italic;
+    color: hsl(var(--bloom-garnet));
+  }
+}
+
+@layer utilities {
+  .font-serif-display {
+    font-family: 'Source Serif Pro', Georgia, serif;
+    font-weight: 400;
+  }
+
+  .font-ui {
+    font-family: 'Roboto', system-ui, sans-serif;
+  }
+
+  .eyebrow {
+    font-family: 'Roboto', system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    line-height: 1;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+
+  .citation {
+    font-family: 'Roboto', system-ui, sans-serif;
+    font-style: italic;
+    font-size: 12px;
+    line-height: 1.5;
+    color: hsl(var(--bloom-aubergine) / 0.6);
+  }
+
+  .bloom-ease {
+    transition-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+}
