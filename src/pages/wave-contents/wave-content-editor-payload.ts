@@ -155,3 +155,30 @@ export function mediaDescriptionFromPayload(payload: Record<string, unknown>): s
   if (typeof payload.descricao === "string") return payload.descricao;
   return "";
 }
+
+const TOOLKIT_PAYLOAD_STRIP_KEYS = ["kind", "titulo", "toolkit"] as const;
+
+export function toolkitExtrasFromPayload(payload: Record<string, unknown>): Record<string, unknown> {
+  return omitKeys(payload, TOOLKIT_PAYLOAD_STRIP_KEYS);
+}
+
+export function toolkitSectionTituloFromPayload(payload: Record<string, unknown>): string {
+  const tk = payload.toolkit;
+  if (tk && typeof tk === "object" && !Array.isArray(tk)) {
+    const t = (tk as Record<string, unknown>).titulo;
+    return typeof t === "string" ? t : "";
+  }
+  return "";
+}
+
+export function toolkitItensFromPayload(payload: Record<string, unknown>): string[] {
+  const tk = payload.toolkit;
+  if (tk && typeof tk === "object" && !Array.isArray(tk)) {
+    const raw = (tk as Record<string, unknown>).itens;
+    if (Array.isArray(raw) && raw.every((x): x is string => typeof x === "string")) {
+      const lines = raw.map((s) => s.trim()).filter(Boolean);
+      return lines.length ? lines : [""];
+    }
+  }
+  return [""];
+}

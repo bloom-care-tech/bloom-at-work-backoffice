@@ -20,6 +20,8 @@ import { WaveContentsListPage } from "@/pages/wave-contents/WaveContentsListPage
 import { WaveContentEditorPage } from "@/pages/wave-contents/WaveContentEditorPage";
 import { SkillsListPage } from "@/pages/skills/SkillsListPage";
 import { SkillEditorPage } from "@/pages/skills/SkillEditorPage";
+import { SkillItemsListPage } from "@/pages/skills/SkillItemsListPage";
+import { SkillItemEditorPage } from "@/pages/skills/SkillItemEditorPage";
 import { DocumentsHubPage } from "@/pages/documents/DocumentsHubPage";
 import { MetricsPage } from "@/pages/metrics/MetricsPage";
 import { ExternalLinksHelpPage } from "@/pages/links/ExternalLinksHelpPage";
@@ -52,8 +54,12 @@ const App = () => (
               <Route path="ondas/:ondaId/conteudos" element={<WaveContentsListPage />} />
               <Route path="ondas/:ondaId" element={<WaveEditorPage />} />
               <Route path="ondas" element={<WavesListPage />} />
+              <Route path="habilidades/nova" element={<SkillEditorPage />} />
+              <Route path="habilidades/:skillId/itens/novo" element={<SkillItemEditorPage />} />
+              <Route path="habilidades/:skillId/itens/:itemId" element={<SkillItemEditorPage />} />
+              <Route path="habilidades/:skillId/itens" element={<SkillItemsListPage />} />
+              <Route path="habilidades/:skillId" element={<SkillEditorPage />} />
               <Route path="habilidades" element={<SkillsListPage />} />
-              <Route path="habilidades/:slug" element={<SkillEditorPage />} />
               <Route path="mapa-documentos" element={<DocumentsHubPage />} />
               <Route path="metricas" element={<MetricsPage />} />
               <Route path="links-externos" element={<ExternalLinksHelpPage />} />

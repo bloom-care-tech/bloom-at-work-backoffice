@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { ApiError } from "@/lib/auth/api-client";
-import { createWaveContent, fetchWaveContent, updateWaveContent } from "@/lib/admin-api";
+import { createWaveContent, fetchWaveContent, updateWaveContent, uploadWaveMediaAsset } from "@/lib/admin-api";
 import {
   normalizeWaveContentKindToApi,
   WAVE_CONTENT_KIND_OPTIONS,
@@ -27,6 +27,9 @@ import {
   mediaUrlKeyForKind,
   omitKeys,
   refsFromPayload,
+  toolkitExtrasFromPayload,
+  toolkitItensFromPayload,
+  toolkitSectionTituloFromPayload,
   type RefFormRow,
 } from "@/pages/wave-contents/wave-content-editor-payload";
 
@@ -44,7 +47,10 @@ function buildPayload(
     mediaExtras: Record<string, unknown>;
     refRows: RefFormRow[];
     refExtras: Record<string, unknown>;
-    toolkitJson: string;
+    contentTitle: string;
+    toolkitSectionTitulo: string;
+    toolkitItens: string[];
+    toolkitExtras: Record<string, unknown>;
   },
 ): Record<string, unknown> {
   switch (kind) {
@@ -68,16 +74,15 @@ function buildPayload(
       return { ...ctx.refExtras, referencias: buildReferenciasForApi(ctx.refRows) };
     }
     case "toolkit": {
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(ctx.toolkitJson);
-      } catch {
-        throw new Error("JSON do payload inválido.");
-      }
-      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-        throw new Error("O payload do toolkit deve ser um objeto JSON.");
-      }
-      return parsed as Record<string, unknown>;
+      const titulo = ctx.contentTitle.trim();
+      const sectionTitulo = ctx.toolkitSectionTitulo.trim() || titulo;
+      const itens = ctx.toolkitItens.map((s) => s.trim()).filter(Boolean);
+      return {
+        ...ctx.toolkitExtras,
+        kind: "toolkit",
+        titulo,
+        toolkit: { titulo: sectionTitulo, itens },
+      };
     }
     default:
       return {};
@@ -114,9 +119,13 @@ export function WaveContentEditorPage() {
   const [refRows, setRefRows] = useState<RefFormRow[]>([emptyRefRow()]);
   const [refExtras, setRefExtras] = useState<Record<string, unknown>>({});
 
-  const [toolkitJson, setToolkitJson] = useState("{}");
+  const [toolkitSectionTitulo, setToolkitSectionTitulo] = useState("");
+  const [toolkitItens, setToolkitItens] = useState<string[]>([""]);
+  const [toolkitExtras, setToolkitExtras] = useState<Record<string, unknown>>({});
 
   const [showPreview, setShowPreview] = useState(false);
+  const [mediaUploading, setMediaUploading] = useState(false);
+  const mediaFileInputRef = useRef<HTMLInputElement>(null);
 
   const prevKindRef = useRef<WaveContentKindApi | null>(null);
 
@@ -148,7 +157,9 @@ export function WaveContentEditorPage() {
       setRefExtras({});
     }
     if (kind === "toolkit") {
-      setToolkitJson("{}");
+      setToolkitSectionTitulo("");
+      setToolkitItens([""]);
+      setToolkitExtras({});
     }
   }, [kind, isNew]);
 
@@ -176,7 +187,9 @@ export function WaveContentEditorPage() {
       setRefRows(refsFromPayload(p));
       setRefExtras(omitKeys(p, ["referencias"]));
     } else if (k === "toolkit") {
-      setToolkitJson(JSON.stringify(p, null, 2));
+      setToolkitSectionTitulo(toolkitSectionTituloFromPayload(p));
+      setToolkitItens(toolkitItensFromPayload(p));
+      setToolkitExtras(toolkitExtrasFromPayload(p));
     }
   }, [data]);
 
@@ -191,7 +204,10 @@ export function WaveContentEditorPage() {
         mediaExtras,
         refRows,
         refExtras,
-        toolkitJson,
+        contentTitle: title.trim(),
+        toolkitSectionTitulo,
+        toolkitItens,
+        toolkitExtras,
       });
       return { ok: true as const, payload, error: null as string | null };
     } catch (e) {
@@ -211,7 +227,10 @@ export function WaveContentEditorPage() {
     mediaExtras,
     refRows,
     refExtras,
-    toolkitJson,
+    title,
+    toolkitSectionTitulo,
+    toolkitItens,
+    toolkitExtras,
   ]);
 
   const save = useMutation({
@@ -227,12 +246,18 @@ export function WaveContentEditorPage() {
           mediaExtras,
           refRows,
           refExtras,
-          toolkitJson,
+          contentTitle: title.trim(),
+          toolkitSectionTitulo,
+          toolkitItens,
+          toolkitExtras,
         });
       } catch (e) {
         throw e instanceof Error ? e : new Error("Invalid payload.");
       }
       if (!title.trim()) throw new Error("Informe o título.");
+      if ((kind === "audio" || kind === "pdf") && !mediaUrl.trim()) {
+        throw new Error("Informe uma URL externa ou envie um ficheiro.");
+      }
       const publishedAt = published ? new Date().toISOString() : null;
       if (id) {
         await updateWaveContent(id, {
@@ -267,6 +292,22 @@ export function WaveContentEditorPage() {
     setRefRows((rows) => rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   }
 
+  async function onWaveMediaFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || (kind !== "audio" && kind !== "pdf")) return;
+    setMediaUploading(true);
+    try {
+      const { url } = await uploadWaveMediaAsset(file, kind);
+      setMediaUrl(url);
+      toast("Ficheiro enviado. O endereço foi preenchido automaticamente.");
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Falha ao enviar o ficheiro.");
+    } finally {
+      setMediaUploading(false);
+    }
+  }
+
   if (!ondaId || (!isNew && !conteudoId)) return null;
 
   const mediaLabel =
@@ -278,7 +319,9 @@ export function WaveContentEditorPage() {
         <Eyebrow tone="garnet">Trilha</Eyebrow>
         <h1 className="font-serif-display text-3xl text-bloom-aubergine mt-1">{isNew ? "Novo conteúdo" : "Editar conteúdo"}</h1>
         <p className="font-ui text-sm text-bloom-aubergine/65 mt-1">
-          Artigos: corpo em HTML (TinyMCE — inclui modo código na barra). Vídeo/áudio/PDF: descrição e URL; referências: tabela; toolkit: JSON.
+          Artigos: corpo em HTML (TinyMCE — inclui modo código na barra). Vídeo: URL. Áudio/PDF: URL externa ou envio para o servidor; referências: tabela; toolkit: título do bloco e lista de itens (campos{" "}
+          <code className="text-[11px]">kind</code>, <code className="text-[11px]">titulo</code>, <code className="text-[11px]">toolkit</code>
+          ).
         </p>
       </FadeIn>
       {!isNew && isLoading && <p className="font-ui text-sm text-bloom-aubergine/60">Carregando…</p>}
@@ -372,10 +415,41 @@ export function WaveContentEditorPage() {
                     placeholder={
                       kind === "video"
                         ? "https://www.youtube.com/embed/…"
-                        : "URL do arquivo ou caminho público"
+                        : "https://… (URL externa) ou use o envio abaixo"
                     }
-                    required
+                    required={kind === "video"}
+                    disabled={mediaUploading}
                   />
+                  {(kind === "audio" || kind === "pdf") && (
+                    <div className="flex flex-wrap items-center gap-3 pt-1">
+                      <input
+                        ref={mediaFileInputRef}
+                        type="file"
+                        className="sr-only"
+                        accept={
+                          kind === "audio"
+                            ? "audio/*,.mp3,.m4a,.wav,.webm,.ogg"
+                            : "application/pdf,.pdf"
+                        }
+                        aria-hidden
+                        tabIndex={-1}
+                        onChange={onWaveMediaFileSelected}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="rounded-full"
+                        disabled={save.isPending || mediaUploading}
+                        onClick={() => mediaFileInputRef.current?.click()}
+                      >
+                        {mediaUploading ? "A enviar…" : "Enviar ficheiro"}
+                      </Button>
+                      <p className="font-ui text-xs text-bloom-aubergine/55">
+                        Após o envio, o campo acima é preenchido com o endereço público do ficheiro (
+                        <code className="text-[11px]">{mediaUrlKeyForKind(kind)}</code>).
+                      </p>
+                    </div>
+                  )}
                   <p className="font-ui text-xs text-bloom-aubergine/55">
                     Campo <code className="text-[11px]">{mediaUrlKeyForKind(kind)}</code> no payload. Outros metadados do item são preservados ao editar.
                   </p>
@@ -458,13 +532,63 @@ export function WaveContentEditorPage() {
             )}
 
             {kind === "toolkit" && (
-              <div className="space-y-2">
-                <Label className="font-ui text-bloom-aubergine/80">Payload (JSON)</Label>
-                <textarea
-                  className={`${inputCls} min-h-[200px] font-mono text-xs`}
-                  value={toolkitJson}
-                  onChange={(e) => setToolkitJson(e.target.value)}
-                />
+              <div className="space-y-4">
+                <p className="font-ui text-xs text-bloom-aubergine/55">
+                  O campo <strong className="font-medium text-bloom-aubergine/75">Título</strong> acima é gravado no registo e repetido em{" "}
+                  <code className="text-[11px]">payload.titulo</code> (cartão na trilha). O bloco abaixo preenche{" "}
+                  <code className="text-[11px]">payload.toolkit</code>.
+                </p>
+                <div className="space-y-2">
+                  <Label className="font-ui text-bloom-aubergine/80">Toolkit — título do bloco</Label>
+                  <input
+                    className={inputCls}
+                    value={toolkitSectionTitulo}
+                    onChange={(e) => setToolkitSectionTitulo(e.target.value)}
+                    placeholder="Ex.: Linha de cuidado — líder"
+                  />
+                  <p className="font-ui text-xs text-bloom-aubergine/55">
+                    Gravado como <code className="text-[11px]">toolkit.titulo</code>. Se ficar vazio, usa o mesmo texto do título do conteúdo.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="font-ui text-bloom-aubergine/80">Itens</Label>
+                  <p className="font-ui text-xs text-bloom-aubergine/55">Um campo por linha da lista (gravado como <code className="text-[11px]">toolkit.itens</code>).</p>
+                  <div className="space-y-3">
+                    {toolkitItens.map((line, i) => (
+                      <div key={i} className="flex gap-2 items-start">
+                        <input
+                          className={inputCls}
+                          value={line}
+                          onChange={(e) =>
+                            setToolkitItens((rows) => rows.map((r, j) => (j === i ? e.target.value : r)))
+                          }
+                          placeholder="Texto do item"
+                        />
+                        {toolkitItens.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="shrink-0 h-11 w-11 text-bloom-aubergine/60 hover:text-bloom-garnet"
+                            aria-label="Remove item"
+                            onClick={() => setToolkitItens((rows) => rows.filter((_, j) => j !== i))}
+                          >
+                            <Trash size={18} />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-full gap-2"
+                    onClick={() => setToolkitItens((rows) => [...rows, ""])}
+                  >
+                    <Plus size={18} weight="bold" />
+                    Adicionar item
+                  </Button>
+                </div>
               </div>
             )}
 

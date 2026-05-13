@@ -332,6 +332,16 @@ export async function reorderWaveContents(waveId: string, ids: string[]) {
   });
 }
 
+export async function uploadWaveMediaAsset(file: File, kind: "audio" | "pdf") {
+  const form = new FormData();
+  form.append("file", file);
+  return apiFetch<{ url: string }>(`/admin/contents/media/upload${q({ kind })}`, {
+    method: "POST",
+    auth: true,
+    body: form,
+  });
+}
+
 export interface SkillListItemDto {
   id: string;
   slug: string;
@@ -348,11 +358,20 @@ export async function fetchSkills() {
   return apiFetch<SkillListItemDto[]>("/admin/skills", { auth: true });
 }
 
-export async function createSkill(body: { slug: string; title: string; description?: string | null }) {
+export async function createSkill(body: {
+  slug: string;
+  title: string;
+  description?: string | null;
+  whatItIs?: string;
+  scienceSays?: string;
+  active?: boolean;
+}) {
   return apiFetch<{ id: string; slug: string }>("/admin/skills", { method: "POST", auth: true, body: JSON.stringify(body) });
 }
 
 export interface SkillDetailDto extends SkillListItemDto {
+  whatItIs: string;
+  scienceSays: string;
   items: {
     id: string;
     type: string;
@@ -364,24 +383,64 @@ export interface SkillDetailDto extends SkillListItemDto {
   }[];
 }
 
-export async function fetchSkillBySlug(slug: string) {
-  return apiFetch<SkillDetailDto>(`/admin/skills/${encodeURIComponent(slug)}`, { auth: true });
+export async function fetchSkillById(skillId: string) {
+  return apiFetch<SkillDetailDto>(`/admin/skills/${encodeURIComponent(skillId)}`, { auth: true });
 }
 
-export async function updateSkill(slug: string, body: Partial<{ title: string; description: string | null; active: boolean }>) {
-  return apiFetch<{ ok: true }>(`/admin/skills/${encodeURIComponent(slug)}`, {
+export async function updateSkill(
+  skillId: string,
+  body: Partial<{ title: string; description: string | null; whatItIs: string; scienceSays: string; active: boolean }>,
+) {
+  return apiFetch<{ ok: true }>(`/admin/skills/${encodeURIComponent(skillId)}`, {
     method: "PATCH",
     auth: true,
     body: JSON.stringify(body),
   });
 }
 
-export async function createSkillItem(slug: string, body: { type: string; title: string; payload: Record<string, unknown> }) {
-  return apiFetch<{ id: string }>(`/admin/skills/${encodeURIComponent(slug)}/items`, {
+export async function deleteSkill(skillId: string) {
+  return apiFetch<{ ok: true }>(`/admin/skills/${encodeURIComponent(skillId)}`, { method: "DELETE", auth: true });
+}
+
+export async function reorderSkills(ids: string[]) {
+  return apiFetch<{ ok: true }>("/admin/skills/reorder", {
+    method: "PATCH",
+    auth: true,
+    body: JSON.stringify({ ids }),
+  });
+}
+
+export async function createSkillItem(skillId: string, body: { type: string; title: string; payload: Record<string, unknown> }) {
+  return apiFetch<{ id: string }>(`/admin/skills/${encodeURIComponent(skillId)}/items`, {
     method: "POST",
     auth: true,
     body: JSON.stringify(body),
   });
+}
+
+export async function reorderSkillItems(skillId: string, ids: string[]) {
+  return apiFetch<{ ok: true }>(`/admin/skills/${encodeURIComponent(skillId)}/items/reorder`, {
+    method: "PATCH",
+    auth: true,
+    body: JSON.stringify({ ids }),
+  });
+}
+
+export interface SkillItemDetailDto {
+  id: string;
+  skillId: string;
+  skillSlug: string;
+  skillTitle: string;
+  type: string;
+  title: string;
+  payload: Record<string, unknown>;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function fetchSkillItemById(id: string) {
+  return apiFetch<SkillItemDetailDto>(`/admin/skill-items/${encodeURIComponent(id)}`, { auth: true });
 }
 
 export async function updateSkillItem(id: string, body: Partial<{ type: string; title: string; payload: Record<string, unknown> }>) {

@@ -2,8 +2,26 @@ import type { RefreshBody } from "./types";
 import { readPersistedAuth, writePersistedAuth, updatePersistedTokens } from "./session-storage";
 
 export function getApiBaseUrl(): string {
-  const raw = import.meta.env.VITE_API_URL as string | undefined;
-  return (raw?.replace(/\/$/, "") ?? "").trim();
+  let raw = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "").trim() ?? "";
+
+  // Misconfiguration: API URL set to the backoffice dev origin — would skip Vite proxy but hit the wrong server.
+  if (import.meta.env.DEV && typeof window !== "undefined" && raw.length > 0) {
+    const pageOrigin = `${window.location.protocol}//${window.location.host}`;
+    if (raw === pageOrigin) {
+      raw = "";
+    }
+  }
+
+  if (raw.length > 0) {
+    return raw;
+  }
+
+  // Dev: call the API directly so POST/multipart is reliable (Vite proxy can mis-handle uploads).
+  if (import.meta.env.DEV) {
+    return "http://127.0.0.1:3000";
+  }
+
+  return "";
 }
 
 function joinUrl(path: string): string {
@@ -93,7 +111,9 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
   const { auth = false, skipRefresh = false, headers: hdrs, ...rest } = options;
   const headers = new Headers(hdrs);
   if (rest.body !== undefined && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
+    if (!(rest.body instanceof FormData)) {
+      headers.set("Content-Type", "application/json");
+    }
   }
 
   if (auth) {

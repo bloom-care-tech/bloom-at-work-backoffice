@@ -240,11 +240,39 @@ function PreviewBody({
         </div>
       )}
 
-      {payload && kind === "toolkit" && (
-        <pre className="font-mono text-[11px] leading-relaxed text-bloom-aubergine/90 bg-bloom-cream-deep/60 rounded-xl p-4 overflow-x-auto border border-bloom-aubergine/10">
-          {JSON.stringify(payload, null, 2)}
-        </pre>
-      )}
+      {payload && kind === "toolkit" && (() => {
+        const tk = payload.toolkit;
+        let sectionTitulo = "";
+        let itens: string[] = [];
+        if (tk && typeof tk === "object" && !Array.isArray(tk)) {
+          const t = (tk as Record<string, unknown>).titulo;
+          sectionTitulo = typeof t === "string" ? t.trim() : "";
+          const raw = (tk as Record<string, unknown>).itens;
+          if (Array.isArray(raw) && raw.every((x): x is string => typeof x === "string")) {
+            itens = raw.map((s) => s.trim()).filter(Boolean);
+          }
+        }
+        const cardTitulo =
+          typeof payload.titulo === "string" && payload.titulo.trim() ? payload.titulo.trim() : title.trim();
+        const heading = sectionTitulo || cardTitulo;
+        return (
+          <div className="rounded-xl border border-bloom-aubergine/15 bg-bloom-cream-deep/60 p-4 space-y-3">
+            <p className="font-ui text-[10px] uppercase tracking-wider text-bloom-garnet">{heading || "Toolkit"}</p>
+            {itens.length > 0 ? (
+              <ul className="space-y-2">
+                {itens.map((it, i) => (
+                  <li key={i} className="flex gap-2 font-ui text-sm text-bloom-aubergine/85">
+                    <span className="text-bloom-garnet">•</span>
+                    {it}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="font-ui text-sm text-bloom-aubergine/50 italic">Sem itens no payload.</p>
+            )}
+          </div>
+        );
+      })()}
     </>
   );
 }

@@ -27,12 +27,15 @@ describe("api-client", () => {
     );
   });
 
-  it("apiFetch uses relative URL when VITE_API_URL is empty", async () => {
+  it("apiFetch uses default API origin in dev when VITE_API_URL is empty", async () => {
     vi.stubEnv("VITE_API_URL", "");
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
 
     await apiFetch("/admin/only-path");
-    expect(globalThis.fetch).toHaveBeenCalledWith("/admin/only-path", expect.anything());
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "http://127.0.0.1:3000/admin/only-path",
+      expect.anything(),
+    );
   });
 
   it("apiFetch sets Authorization when auth is true and token exists", async () => {
@@ -88,5 +91,15 @@ describe("api-client", () => {
       message: "first",
       status: 422,
     });
+  });
+
+  it("apiFetch omits Content-Type for FormData so the boundary is set by fetch", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 200 }));
+    const fd = new FormData();
+    fd.append("file", new Blob(["x"], { type: "application/pdf" }), "x.pdf");
+    await apiFetch("/admin/contents/media/upload?kind=pdf", { method: "POST", body: fd });
+    const [, init] = vi.mocked(globalThis.fetch).mock.calls[0]!;
+    const headers = new Headers((init as RequestInit).headers);
+    expect(headers.get("Content-Type")).toBeNull();
   });
 });

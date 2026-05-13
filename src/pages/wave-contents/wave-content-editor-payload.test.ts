@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { extractArticleEditorHtml, payloadRecordFromUnknown } from "./wave-content-editor-payload";
+import {
+  extractArticleEditorHtml,
+  payloadRecordFromUnknown,
+  toolkitExtrasFromPayload,
+  toolkitItensFromPayload,
+  toolkitSectionTituloFromPayload,
+} from "./wave-content-editor-payload";
 
 describe("payloadRecordFromUnknown", () => {
   it("returns empty object for null/undefined", () => {
@@ -38,5 +44,31 @@ describe("extractArticleEditorHtml", () => {
     expect(html).toContain("Line one.");
     expect(html).toContain("<ol>");
     expect(html).toContain("<li>");
+  });
+});
+
+describe("toolkit payload helpers", () => {
+  const sample = {
+    kind: "toolkit",
+    titulo: "Guia para líderes",
+    toolkit: {
+      titulo: "Linha de cuidado — líder",
+      itens: ["A", "B"],
+    },
+    legacy: 1,
+  };
+
+  it("reads toolkit section title and items", () => {
+    expect(toolkitSectionTituloFromPayload(sample)).toBe("Linha de cuidado — líder");
+    expect(toolkitItensFromPayload(sample)).toEqual(["A", "B"]);
+  });
+
+  it("strips known toolkit keys for extras", () => {
+    expect(toolkitExtrasFromPayload(sample)).toEqual({ legacy: 1 });
+  });
+
+  it("returns one empty item row when toolkit is missing", () => {
+    expect(toolkitItensFromPayload({})).toEqual([""]);
+    expect(toolkitSectionTituloFromPayload({})).toBe("");
   });
 });

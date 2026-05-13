@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, ListBullets, PencilSimple, Plus, Trash } from "@phosphor-icons/react";
+import { ArrowDown, ArrowUp, PencilSimple, Plus, Trash } from "@phosphor-icons/react";
 import { FadeIn, Eyebrow, PillButton } from "@/components/bloom/primitives";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { ApiError } from "@/lib/auth/api-client";
-import { deleteSkill, fetchSkills, reorderSkills } from "@/lib/admin-api";
+import { deleteSkillItem, fetchSkillById, reorderSkillItems } from "@/lib/admin-api";
+import { skillItemTypeLabel } from "@/lib/skill-item-labels";
 
 function swapIds(ids: string[], i: number, j: number): string[] {
   const next = [...ids];
@@ -14,20 +15,25 @@ function swapIds(ids: string[], i: number, j: number): string[] {
   return next;
 }
 
-export function SkillsListPage() {
+export function SkillItemsListPage() {
+  const { skillId } = useParams<{ skillId: string }>();
   const qc = useQueryClient();
-  const { data, isLoading, isError } = useQuery({ queryKey: ["skills"], queryFn: fetchSkills });
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["skill", skillId],
+    queryFn: () => fetchSkillById(skillId!),
+    enabled: Boolean(skillId),
+  });
 
-  const sorted = useMemo(() => (data ?? []).slice().sort((a, b) => a.sortOrder - b.sortOrder), [data]);
+  const sorted = useMemo(() => (data?.items ?? []).slice().sort((a, b) => a.sortOrder - b.sortOrder), [data]);
   const [orderIds, setOrderIds] = useState<string[] | null>(null);
-  const ids = orderIds ?? sorted.map((s) => s.id);
+  const ids = orderIds ?? sorted.map((c) => c.id);
 
   const reorder = useMutation({
-    mutationFn: reorderSkills,
+    mutationFn: (next: string[]) => reorderSkillItems(skillId!, next),
     onSuccess: () => {
       toast("Ordem atualizada.");
       setOrderIds(null);
-      void qc.invalidateQueries({ queryKey: ["skills"] });
+      void qc.invalidateQueries({ queryKey: ["skill", skillId] });
     },
     onError: (e) => {
       setOrderIds(null);
@@ -36,12 +42,11 @@ export function SkillsListPage() {
   });
 
   const del = useMutation({
-    mutationFn: deleteSkill,
+    mutationFn: deleteSkillItem,
     onSuccess: () => {
-      toast("Habilidade excluída.");
+      toast("Item removido.");
       setOrderIds(null);
-      void qc.invalidateQueries({ queryKey: ["skills"] });
-      void qc.invalidateQueries({ queryKey: ["dash"] });
+      void qc.invalidateQueries({ queryKey: ["skill", skillId] });
     },
     onError: (e) => toast(e instanceof ApiError ? e.message : "Erro ao excluir."),
   });
@@ -57,24 +62,36 @@ export function SkillsListPage() {
     applyReorder(swapIds(ids, index, j));
   };
 
+  if (!skillId) return null;
+
   return (
     <div className="max-w-5xl space-y-6">
       <FadeIn>
         <Eyebrow tone="garnet">Catálogo</Eyebrow>
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mt-2">
           <div>
-            <h1 className="font-serif-display text-3xl text-bloom-aubergine">Habilidades socioemocionais</h1>
+            <h1 className="font-serif-display text-3xl text-bloom-aubergine">Itens da habilidade</h1>
             <p className="font-ui text-sm text-bloom-aubergine/65 mt-1">
-              Ordene com as setas; edite metadados ou gerencie itens (áudio, vídeo, texto, livro, filme).
+              {data ? (
+                <>
+                  <span className="font-medium text-bloom-aubergine">{data.title}</span>
+                  <span className="text-bloom-aubergine/50"> · {data.slug}</span>
+                </>
+              ) : (
+                "Áudio, YouTube, texto, livro ou filme — na ordem em que aparecem no app."
+              )}
             </p>
           </div>
-          <PillButton asLink="/habilidades/nova">Nova habilidade</PillButton>
+          <div className="flex gap-2 flex-wrap">
+            <PillButton asLink={`/habilidades/${skillId}`} variant="ghost-aubergine">
+              Voltar à habilidade
+            </PillButton>
+            <PillButton asLink={`/habilidades/${skillId}/itens/novo`}>Novo item</PillButton>
+          </div>
         </div>
       </FadeIn>
-
       {isLoading && <p className="font-ui text-sm text-bloom-aubergine/60">Carregando…</p>}
-      {isError && <p className="font-ui text-sm text-bloom-garnet">Não foi possível carregar as habilidades.</p>}
-
+      {isError && <p className="font-ui text-sm text-bloom-garnet">Não foi possível carregar os itens.</p>}
       {sorted.length > 0 && (
         <FadeIn delay={0.05}>
           <div className="overflow-x-auto rounded-2xl border border-bloom-aubergine/10 bg-white/90">
@@ -82,24 +99,20 @@ export function SkillsListPage() {
               <thead>
                 <tr className="border-b border-bloom-aubergine/10 text-left text-bloom-aubergine/55 uppercase text-[11px] tracking-wide">
                   <th className="px-4 py-3 w-10">#</th>
-                  <th className="px-4 py-3">Slug</th>
+                  <th className="px-4 py-3">Tipo</th>
                   <th className="px-4 py-3">Título</th>
-                  <th className="px-4 py-3">Itens</th>
-                  <th className="px-4 py-3">Ativa</th>
                   <th className="px-4 py-3 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {ids.map((id, index) => {
-                  const row = sorted.find((s) => s.id === id);
+                  const row = sorted.find((c) => c.id === id);
                   if (!row) return null;
                   return (
                     <tr key={id} className="border-b border-bloom-aubergine/8 last:border-0">
                       <td className="px-4 py-3 text-bloom-aubergine/50">{index + 1}</td>
-                      <td className="px-4 py-3 font-medium">{row.slug}</td>
+                      <td className="px-4 py-3 font-medium">{skillItemTypeLabel(row.type)}</td>
                       <td className="px-4 py-3">{row.title}</td>
-                      <td className="px-4 py-3">{row.itemCount}</td>
-                      <td className="px-4 py-3">{row.active ? "Sim" : "Não"}</td>
                       <td className="px-4 py-3">
                         <div className="flex justify-end gap-1 flex-wrap">
                           <Button
@@ -125,12 +138,7 @@ export function SkillsListPage() {
                             <ArrowDown className="h-4 w-4" />
                           </Button>
                           <Button type="button" variant="ghost" size="icon" className="h-9 w-9" asChild>
-                            <Link to={`/habilidades/${id}/itens`} aria-label="Itens">
-                              <ListBullets className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                          <Button type="button" variant="ghost" size="icon" className="h-9 w-9" asChild>
-                            <Link to={`/habilidades/${id}`} aria-label="Editar">
+                            <Link to={`/habilidades/${skillId}/itens/${id}`} aria-label="Editar">
                               <PencilSimple className="h-4 w-4" />
                             </Link>
                           </Button>
@@ -141,7 +149,7 @@ export function SkillsListPage() {
                             className="h-9 w-9 text-bloom-garnet"
                             disabled={del.isPending}
                             onClick={() => {
-                              if (window.confirm("Excluir esta habilidade e todos os seus itens?")) del.mutate(id);
+                              if (window.confirm("Remover este item?")) del.mutate(id);
                             }}
                             aria-label="Excluir"
                           >
@@ -157,13 +165,12 @@ export function SkillsListPage() {
           </div>
         </FadeIn>
       )}
-
       {!isLoading && sorted.length === 0 && (
         <FadeIn delay={0.05}>
-          <p className="font-ui text-sm text-bloom-aubergine/65">Nenhuma habilidade cadastrada.</p>
-          <PillButton asLink="/habilidades/nova" className="mt-4">
+          <p className="font-ui text-sm text-bloom-aubergine/65">Nenhum item nesta habilidade.</p>
+          <PillButton asLink={`/habilidades/${skillId}/itens/novo`} className="mt-4">
             <Plus className="inline mr-2" size={18} weight="bold" />
-            Criar primeira habilidade
+            Criar item
           </PillButton>
         </FadeIn>
       )}
