@@ -107,3 +107,13 @@
     transition-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
   }
 }
+
+/**
+ * Article body HTML (wave preview + TinyMCE iframe).
+ * Keep @apply in sync with `bloom-at-work/src/index.css` (`.wave-article-body-prose`).
+ */
+@layer components {
+  .wave-article-body-prose {
+    @apply font-ui text-sm text-bloom-aubergine/85 leading-relaxed [&_a]:text-bloom-garnet [&_a]:underline [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_h1]:font-serif-display [&_h1]:text-xl [&_h2]:font-serif-display [&_h2]:text-lg [&_h3]:font-serif-display [&_blockquote]:border-l-4 [&_blockquote]:border-bloom-garnet/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_code]:text-xs [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-bloom-cream-deep/80 [&_pre]:p-3 [&_img]:max-w-full [&_img]:rounded-lg [&_table]:w-full [&_table]:border-collapse [&_table]:text-sm [&_th]:border [&_th]:border-bloom-aubergine/20 [&_th]:bg-bloom-cream-deep/60 [&_th]:px-2 [&_th]:py-1.5 [&_td]:border [&_td]:border-bloom-aubergine/15 [&_td]:px-2 [&_td]:py-1.5 [&_mark]:rounded-sm [&_ul[data-type=taskList]]:list-none [&_ul[data-type=taskList]]:pl-1 [&_li[data-type=taskItem]]:flex [&_li[data-type=taskItem]]:items-start [&_li[data-type=taskItem]]:gap-2 [&_li[data-type=taskItem]_label]:flex-1;
+  }
+}

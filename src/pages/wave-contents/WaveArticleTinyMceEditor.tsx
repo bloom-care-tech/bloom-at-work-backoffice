@@ -1,4 +1,5 @@
 import { Editor } from "@tinymce/tinymce-react";
+import indexCssUrl from "@/index.css?url";
 
 /** Keep in sync with `tinymce` in package.json for CDN asset compatibility. */
 const TINYMCE_VERSION = "7.9.2";
@@ -27,6 +28,8 @@ export function WaveArticleTinyMceEditor({ editorKey, value, onChange, disabled 
           menubar: true,
           branding: false,
           promotion: false,
+          body_class: "mce-content-body wave-article-body-prose",
+          content_css: [indexCssUrl],
           plugins: [
             "advlist",
             "autolink",
@@ -48,8 +51,6 @@ export function WaveArticleTinyMceEditor({ editorKey, value, onChange, disabled 
           ],
           toolbar:
             "undo redo | blocks | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image table | removeformat | code fullscreen",
-          content_style:
-            "body { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 14px; max-width: 720px; margin: 1rem auto; color: hsl(273, 47%, 11%); line-height: 1.6; }",
           automatic_uploads: false,
           image_description: false,
           convert_urls: false,

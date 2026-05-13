@@ -9,15 +9,13 @@ import {
 } from "@phosphor-icons/react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AudioPlayer } from "@bloom-at-work/components/trilha/AudioPlayer";
+import { WAVE_ARTICLE_BODY_PROSE_CLASS } from "@/lib/wave-article-body-class";
 import { waveContentKindLabel, type WaveContentKindApi } from "@/lib/wave-content-kinds";
 
 const PURIFY_OPTS: DOMPurify.Config = {
   USE_PROFILES: { html: true },
   ADD_ATTR: ["target", "rel", "data-type", "data-checked", "colspan", "rowspan", "colwidth", "class"],
 };
-
-const articleBodyClass =
-  "font-ui text-sm text-bloom-aubergine/85 leading-relaxed [&_a]:text-bloom-garnet [&_a]:underline [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_h1]:font-serif-display [&_h1]:text-xl [&_h2]:font-serif-display [&_h2]:text-lg [&_h3]:font-serif-display [&_blockquote]:border-l-4 [&_blockquote]:border-bloom-garnet/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_code]:text-xs [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-bloom-cream-deep/80 [&_pre]:p-3 [&_img]:max-w-full [&_img]:rounded-lg [&_table]:w-full [&_table]:border-collapse [&_table]:text-sm [&_th]:border [&_th]:border-bloom-aubergine/20 [&_th]:bg-bloom-cream-deep/60 [&_th]:px-2 [&_th]:py-1.5 [&_td]:border [&_td]:border-bloom-aubergine/15 [&_td]:px-2 [&_td]:py-1.5 [&_mark]:rounded-sm [&_ul[data-type=taskList]]:list-none [&_ul[data-type=taskList]]:pl-1 [&_li[data-type=taskItem]]:flex [&_li[data-type=taskItem]]:items-start [&_li[data-type=taskItem]]:gap-2 [&_li[data-type=taskItem]_label]:flex-1";
 
 function payloadDescription(p: Record<string, unknown>): string {
   if (typeof p.description === "string") return p.description;
@@ -109,7 +107,7 @@ function PreviewBody({
           )}
           {typeof payload.bodyHtml === "string" && htmlHasVisibleText(payload.bodyHtml) ? (
             <div
-              className={articleBodyClass}
+              className={WAVE_ARTICLE_BODY_PROSE_CLASS}
               dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(payload.bodyHtml, PURIFY_OPTS) }}
             />
           ) : (
