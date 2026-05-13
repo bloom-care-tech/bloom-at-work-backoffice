@@ -25,7 +25,7 @@ const testAuthUser = {
 };
 
 export const defaultHandlers = [
-  http.get(`${TEST_API_ORIGIN}/admin/companies`, () => {
+  http.get(`${TEST_API_ORIGIN}/admin/empresas`, () => {
     return HttpResponse.json({
       items: [companyRow],
       page: 1,
@@ -34,7 +34,7 @@ export const defaultHandlers = [
     });
   }),
 
-  http.post(`${TEST_API_ORIGIN}/admin/signup-invites`, async ({ request }) => {
+  http.post(`${TEST_API_ORIGIN}/admin/convites-cadastro`, async ({ request }) => {
     const body = (await request.json()) as { companyId: string; role: string };
     return HttpResponse.json({
       id: "22222222-2222-2222-2222-222222222222",

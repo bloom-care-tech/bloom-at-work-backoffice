@@ -66,11 +66,11 @@ export async function fetchCompaniesPage(
   limit = 20,
   filters?: { search?: string; active?: boolean },
 ) {
-  return apiFetch<Paginated<CompanyDto>>(`/admin/companies${q({ page, limit, ...(filters ?? {}) })}`, { auth: true });
+  return apiFetch<Paginated<CompanyDto>>(`/admin/empresas${q({ page, limit, ...(filters ?? {}) })}`, { auth: true });
 }
 
 export async function fetchCompany(id: string) {
-  return apiFetch<CompanyDto>(`/admin/companies/${id}`, { auth: true });
+  return apiFetch<CompanyDto>(`/admin/empresas/${id}`, { auth: true });
 }
 
 export async function createCompany(body: {
@@ -79,18 +79,18 @@ export async function createCompany(body: {
   logoUrl?: string | null;
   active?: boolean;
 }) {
-  return apiFetch<{ id: string }>(`/admin/companies`, { method: "POST", auth: true, body: JSON.stringify(body) });
+  return apiFetch<{ id: string }>(`/admin/empresas`, { method: "POST", auth: true, body: JSON.stringify(body) });
 }
 
 export async function updateCompany(
   id: string,
   body: Partial<{ name: string; allowedEmailDomains: string[]; logoUrl: string | null; active: boolean }>,
 ) {
-  return apiFetch<{ ok: true }>(`/admin/companies/${id}`, { method: "PATCH", auth: true, body: JSON.stringify(body) });
+  return apiFetch<{ ok: true }>(`/admin/empresas/${id}`, { method: "PATCH", auth: true, body: JSON.stringify(body) });
 }
 
 export async function deleteCompany(id: string) {
-  return apiFetch<{ ok: true }>(`/admin/companies/${id}`, { method: "DELETE", auth: true });
+  return apiFetch<{ ok: true }>(`/admin/empresas/${id}`, { method: "DELETE", auth: true });
 }
 
 export async function fetchUsersPage(
@@ -100,20 +100,20 @@ export async function fetchUsersPage(
   search?: string,
   filters?: { status?: string; role?: string; createdFrom?: string; createdTo?: string },
 ) {
-  return apiFetch<Paginated<UserListItemDto>>(`/admin/users${q({ page, limit, companyId, search, ...filters })}`, {
+  return apiFetch<Paginated<UserListItemDto>>(`/admin/usuarios${q({ page, limit, companyId, search, ...filters })}`, {
     auth: true,
   });
 }
 
 export async function fetchUser(id: string) {
-  return apiFetch<UserListItemDto>(`/admin/users/${id}`, { auth: true });
+  return apiFetch<UserListItemDto>(`/admin/usuarios/${id}`, { auth: true });
 }
 
 export async function updateUser(
   id: string,
   body: Partial<{ name: string | null; displayName: string | null; role: string; status: string; isAdmin: boolean }>,
 ) {
-  return apiFetch<{ ok: true }>(`/admin/users/${id}`, { method: "PATCH", auth: true, body: JSON.stringify(body) });
+  return apiFetch<{ ok: true }>(`/admin/usuarios/${id}`, { method: "PATCH", auth: true, body: JSON.stringify(body) });
 }
 
 export async function fetchInvitesPage(
@@ -122,20 +122,20 @@ export async function fetchInvitesPage(
   companyId?: string,
   status?: "active" | "revoked",
 ) {
-  return apiFetch<Paginated<InviteListItemDto>>(`/admin/signup-invites${q({ page, limit, companyId, status })}`, {
+  return apiFetch<Paginated<InviteListItemDto>>(`/admin/convites-cadastro${q({ page, limit, companyId, status })}`, {
     auth: true,
   });
 }
 
 export async function createInvite(body: { companyId: string; role: string; expiresAt?: string }) {
   return apiFetch<{ id: string; inviteUrl: string; companyName: string; role: string; expiresAt: string | null }>(
-    `/admin/signup-invites`,
+    `/admin/convites-cadastro`,
     { method: "POST", auth: true, body: JSON.stringify(body) },
   );
 }
 
 export async function revokeInvite(id: string) {
-  return apiFetch<{ ok: true }>(`/admin/signup-invites/${id}/revoke`, { method: "POST", auth: true });
+  return apiFetch<{ ok: true }>(`/admin/convites-cadastro/${id}/revoke`, { method: "POST", auth: true });
 }
 
 export async function fetchQuotesPage(
@@ -204,11 +204,11 @@ export interface WaveDto {
 }
 
 export async function fetchWaves() {
-  return apiFetch<WaveDto[]>("/admin/waves", { auth: true });
+  return apiFetch<WaveDto[]>("/admin/ondas", { auth: true });
 }
 
 export async function fetchWave(id: string) {
-  return apiFetch<WaveDto>(`/admin/waves/${id}`, { auth: true });
+  return apiFetch<WaveDto>(`/admin/ondas/${id}`, { auth: true });
 }
 
 export async function createWave(body: {
@@ -218,22 +218,22 @@ export async function createWave(body: {
   sortOrder?: number;
   active?: boolean;
 }) {
-  return apiFetch<{ id: string }>("/admin/waves", { method: "POST", auth: true, body: JSON.stringify(body) });
+  return apiFetch<{ id: string }>("/admin/ondas", { method: "POST", auth: true, body: JSON.stringify(body) });
 }
 
 export async function updateWave(
   id: string,
   body: Partial<{ slug: string; title: string; subtitle: string; sortOrder: number; active: boolean }>,
 ) {
-  return apiFetch<{ ok: true }>(`/admin/waves/${id}`, { method: "PATCH", auth: true, body: JSON.stringify(body) });
+  return apiFetch<{ ok: true }>(`/admin/ondas/${id}`, { method: "PATCH", auth: true, body: JSON.stringify(body) });
 }
 
 export async function deleteWave(id: string) {
-  return apiFetch<{ ok: true }>(`/admin/waves/${id}`, { method: "DELETE", auth: true });
+  return apiFetch<{ ok: true }>(`/admin/ondas/${id}`, { method: "DELETE", auth: true });
 }
 
 export async function reorderWaves(ids: string[]) {
-  return apiFetch<{ ok: true }>("/admin/waves/reorder", {
+  return apiFetch<{ ok: true }>("/admin/ondas/reorder", {
     method: "PATCH",
     auth: true,
     body: JSON.stringify({ ids }),
@@ -254,7 +254,7 @@ export interface DashboardSummaryDto {
 }
 
 export async function fetchDashboardSummary() {
-  return apiFetch<DashboardSummaryDto>("/admin/dashboard/summary", { auth: true });
+  return apiFetch<DashboardSummaryDto>("/admin/painel/resumo", { auth: true });
 }
 
 export interface WaveContentDto {
@@ -279,7 +279,7 @@ export async function fetchWaveContentsPage(
   filters?: { published?: boolean; kind?: string; search?: string },
 ) {
   return apiFetch<{ items: WaveContentDto[]; page: number; limit: number; total: number }>(
-    `/admin/waves/${waveId}/contents${q({ page, limit, ...filters })}`,
+    `/admin/ondas/${waveId}/conteudos${q({ page, limit, ...filters })}`,
     { auth: true },
   );
 }
@@ -295,7 +295,7 @@ export async function createWaveContent(
     publishedAt?: string | null;
   },
 ) {
-  return apiFetch<{ id: string }>(`/admin/waves/${waveId}/contents`, {
+  return apiFetch<{ id: string }>(`/admin/ondas/${waveId}/conteudos`, {
     method: "POST",
     auth: true,
     body: JSON.stringify(body),
@@ -303,7 +303,7 @@ export async function createWaveContent(
 }
 
 export async function fetchWaveContent(id: string) {
-  return apiFetch<WaveContentDto>(`/admin/contents/${id}`, { auth: true });
+  return apiFetch<WaveContentDto>(`/admin/conteudos/${id}`, { auth: true });
 }
 
 export async function updateWaveContent(
@@ -317,15 +317,15 @@ export async function updateWaveContent(
     publishedAt: string | null;
   }>,
 ) {
-  return apiFetch<{ ok: true }>(`/admin/contents/${id}`, { method: "PATCH", auth: true, body: JSON.stringify(body) });
+  return apiFetch<{ ok: true }>(`/admin/conteudos/${id}`, { method: "PATCH", auth: true, body: JSON.stringify(body) });
 }
 
 export async function deleteWaveContent(id: string) {
-  return apiFetch<{ ok: true }>(`/admin/contents/${id}`, { method: "DELETE", auth: true });
+  return apiFetch<{ ok: true }>(`/admin/conteudos/${id}`, { method: "DELETE", auth: true });
 }
 
 export async function reorderWaveContents(waveId: string, ids: string[]) {
-  return apiFetch<{ ok: true }>(`/admin/waves/${waveId}/contents/reorder`, {
+  return apiFetch<{ ok: true }>(`/admin/ondas/${waveId}/conteudos/reorder`, {
     method: "PATCH",
     auth: true,
     body: JSON.stringify({ ids }),
@@ -341,7 +341,7 @@ export async function uploadEditorialMediaAsset(
   const form = new FormData();
   form.append("file", file);
   return apiFetch<{ url: string }>(
-    `/admin/contents/media/upload${q({ kind: options.kind, context: options.context })}`,
+    `/admin/conteudos/media/upload${q({ kind: options.kind, context: options.context })}`,
     {
       method: "POST",
       auth: true,
@@ -363,7 +363,7 @@ export interface SkillListItemDto {
 }
 
 export async function fetchSkills() {
-  return apiFetch<SkillListItemDto[]>("/admin/skills", { auth: true });
+  return apiFetch<SkillListItemDto[]>("/admin/habilidades", { auth: true });
 }
 
 export async function createSkill(body: {
@@ -374,7 +374,7 @@ export async function createSkill(body: {
   scienceSays?: string;
   active?: boolean;
 }) {
-  return apiFetch<{ id: string; slug: string }>("/admin/skills", { method: "POST", auth: true, body: JSON.stringify(body) });
+  return apiFetch<{ id: string; slug: string }>("/admin/habilidades", { method: "POST", auth: true, body: JSON.stringify(body) });
 }
 
 export interface SkillDetailDto extends SkillListItemDto {
@@ -392,14 +392,14 @@ export interface SkillDetailDto extends SkillListItemDto {
 }
 
 export async function fetchSkillById(skillId: string) {
-  return apiFetch<SkillDetailDto>(`/admin/skills/${encodeURIComponent(skillId)}`, { auth: true });
+  return apiFetch<SkillDetailDto>(`/admin/habilidades/${encodeURIComponent(skillId)}`, { auth: true });
 }
 
 export async function updateSkill(
   skillId: string,
   body: Partial<{ title: string; description: string | null; whatItIs: string; scienceSays: string; active: boolean }>,
 ) {
-  return apiFetch<{ ok: true }>(`/admin/skills/${encodeURIComponent(skillId)}`, {
+  return apiFetch<{ ok: true }>(`/admin/habilidades/${encodeURIComponent(skillId)}`, {
     method: "PATCH",
     auth: true,
     body: JSON.stringify(body),
@@ -407,11 +407,11 @@ export async function updateSkill(
 }
 
 export async function deleteSkill(skillId: string) {
-  return apiFetch<{ ok: true }>(`/admin/skills/${encodeURIComponent(skillId)}`, { method: "DELETE", auth: true });
+  return apiFetch<{ ok: true }>(`/admin/habilidades/${encodeURIComponent(skillId)}`, { method: "DELETE", auth: true });
 }
 
 export async function reorderSkills(ids: string[]) {
-  return apiFetch<{ ok: true }>("/admin/skills/reorder", {
+  return apiFetch<{ ok: true }>("/admin/habilidades/reorder", {
     method: "PATCH",
     auth: true,
     body: JSON.stringify({ ids }),
@@ -419,7 +419,7 @@ export async function reorderSkills(ids: string[]) {
 }
 
 export async function createSkillItem(skillId: string, body: { type: string; title: string; payload: Record<string, unknown> }) {
-  return apiFetch<{ id: string }>(`/admin/skills/${encodeURIComponent(skillId)}/items`, {
+  return apiFetch<{ id: string }>(`/admin/habilidades/${encodeURIComponent(skillId)}/itens`, {
     method: "POST",
     auth: true,
     body: JSON.stringify(body),
@@ -427,7 +427,7 @@ export async function createSkillItem(skillId: string, body: { type: string; tit
 }
 
 export async function reorderSkillItems(skillId: string, ids: string[]) {
-  return apiFetch<{ ok: true }>(`/admin/skills/${encodeURIComponent(skillId)}/items/reorder`, {
+  return apiFetch<{ ok: true }>(`/admin/habilidades/${encodeURIComponent(skillId)}/itens/reorder`, {
     method: "PATCH",
     auth: true,
     body: JSON.stringify({ ids }),
@@ -448,15 +448,15 @@ export interface SkillItemDetailDto {
 }
 
 export async function fetchSkillItemById(id: string) {
-  return apiFetch<SkillItemDetailDto>(`/admin/skill-items/${encodeURIComponent(id)}`, { auth: true });
+  return apiFetch<SkillItemDetailDto>(`/admin/itens-habilidade/${encodeURIComponent(id)}`, { auth: true });
 }
 
 export async function updateSkillItem(id: string, body: Partial<{ type: string; title: string; payload: Record<string, unknown> }>) {
-  return apiFetch<{ ok: true }>(`/admin/skill-items/${id}`, { method: "PATCH", auth: true, body: JSON.stringify(body) });
+  return apiFetch<{ ok: true }>(`/admin/itens-habilidade/${id}`, { method: "PATCH", auth: true, body: JSON.stringify(body) });
 }
 
 export async function deleteSkillItem(id: string) {
-  return apiFetch<{ ok: true }>(`/admin/skill-items/${id}`, { method: "DELETE", auth: true });
+  return apiFetch<{ ok: true }>(`/admin/itens-habilidade/${id}`, { method: "DELETE", auth: true });
 }
 
 export interface DocumentCategoryDto {
@@ -472,15 +472,15 @@ export interface DocumentCategoryDto {
 }
 
 export async function fetchDocumentCategories() {
-  return apiFetch<DocumentCategoryDto[]>("/admin/document-categories", { auth: true });
+  return apiFetch<DocumentCategoryDto[]>("/admin/categorias-documento", { auth: true });
 }
 
 export async function fetchDocumentCategory(id: string) {
-  return apiFetch<DocumentCategoryDto>(`/admin/document-categories/${encodeURIComponent(id)}`, { auth: true });
+  return apiFetch<DocumentCategoryDto>(`/admin/categorias-documento/${encodeURIComponent(id)}`, { auth: true });
 }
 
 export async function reorderDocumentCategories(ids: string[]) {
-  return apiFetch<{ ok: true }>("/admin/document-categories/reorder", {
+  return apiFetch<{ ok: true }>("/admin/categorias-documento/reorder", {
     method: "PATCH",
     auth: true,
     body: JSON.stringify({ ids }),
@@ -493,18 +493,18 @@ export async function createDocumentCategory(body: {
   description?: string | null;
   accentColor?: string | null;
 }) {
-  return apiFetch<{ id: string }>("/admin/document-categories", { method: "POST", auth: true, body: JSON.stringify(body) });
+  return apiFetch<{ id: string }>("/admin/categorias-documento", { method: "POST", auth: true, body: JSON.stringify(body) });
 }
 
 export async function updateDocumentCategory(
   id: string,
   body: Partial<{ name: string; description: string | null; accentColor: string | null }>,
 ) {
-  return apiFetch<{ ok: true }>(`/admin/document-categories/${id}`, { method: "PATCH", auth: true, body: JSON.stringify(body) });
+  return apiFetch<{ ok: true }>(`/admin/categorias-documento/${id}`, { method: "PATCH", auth: true, body: JSON.stringify(body) });
 }
 
 export async function deleteDocumentCategory(id: string, force?: boolean) {
-  return apiFetch<{ ok: true }>(`/admin/document-categories/${id}${q({ force: force ? true : undefined })}`, {
+  return apiFetch<{ ok: true }>(`/admin/categorias-documento/${id}${q({ force: force ? true : undefined })}`, {
     method: "DELETE",
     auth: true,
   });
@@ -531,21 +531,21 @@ export async function fetchDocumentsPage(
   filters?: { categoryId?: string; audience?: string; tag?: string; search?: string },
 ) {
   return apiFetch<{ items: DocumentDto[]; page: number; limit: number; total: number }>(
-    `/admin/documents${q({ page, limit, ...filters })}`,
+    `/admin/documentos${q({ page, limit, ...filters })}`,
     { auth: true },
   );
 }
 
 export async function fetchDocumentsInCategory(categoryId: string, page = 1, limit = 200) {
   return apiFetch<{ items: DocumentDto[]; page: number; limit: number; total: number }>(
-    `/admin/document-categories/${encodeURIComponent(categoryId)}/documents${q({ page, limit })}`,
+    `/admin/categorias-documento/${encodeURIComponent(categoryId)}/documents${q({ page, limit })}`,
     { auth: true },
   );
 }
 
 export async function reorderDocumentsInCategory(categoryId: string, ids: string[]) {
   return apiFetch<{ ok: true }>(
-    `/admin/document-categories/${encodeURIComponent(categoryId)}/documents/reorder`,
+    `/admin/categorias-documento/${encodeURIComponent(categoryId)}/documents/reorder`,
     { method: "PATCH", auth: true, body: JSON.stringify({ ids }) },
   );
 }
@@ -559,7 +559,7 @@ export async function createDocument(body: {
   pdfUrl?: string | null;
   publishedAt?: string | null;
 }) {
-  return apiFetch<{ id: string }>("/admin/documents", { method: "POST", auth: true, body: JSON.stringify(body) });
+  return apiFetch<{ id: string }>("/admin/documentos", { method: "POST", auth: true, body: JSON.stringify(body) });
 }
 
 export async function createDocumentInCategory(
@@ -574,13 +574,13 @@ export async function createDocumentInCategory(
   },
 ) {
   return apiFetch<{ id: string }>(
-    `/admin/document-categories/${encodeURIComponent(categoryId)}/documents`,
+    `/admin/categorias-documento/${encodeURIComponent(categoryId)}/documents`,
     { method: "POST", auth: true, body: JSON.stringify(body) },
   );
 }
 
 export async function fetchDocument(id: string) {
-  return apiFetch<DocumentDto>(`/admin/documents/${encodeURIComponent(id)}`, { auth: true });
+  return apiFetch<DocumentDto>(`/admin/documentos/${encodeURIComponent(id)}`, { auth: true });
 }
 
 export async function updateDocument(
@@ -594,11 +594,11 @@ export async function updateDocument(
     publishedAt: string | null;
   }>,
 ) {
-  return apiFetch<{ ok: true }>(`/admin/documents/${id}`, { method: "PATCH", auth: true, body: JSON.stringify(body) });
+  return apiFetch<{ ok: true }>(`/admin/documentos/${id}`, { method: "PATCH", auth: true, body: JSON.stringify(body) });
 }
 
 export async function deleteDocument(id: string) {
-  return apiFetch<{ ok: true }>(`/admin/documents/${id}`, { method: "DELETE", auth: true });
+  return apiFetch<{ ok: true }>(`/admin/documentos/${id}`, { method: "DELETE", auth: true });
 }
 
 export async function fetchContentRanking(period: "week" | "month", from?: string, to?: string, companyId?: string) {
@@ -608,7 +608,7 @@ export async function fetchContentRanking(period: "week" | "month", from?: strin
     to: string;
     suppressionMinCount: number;
     rows: { contentType: string; contentId: string; count: number }[];
-  }>(`/admin/metrics/content-ranking${q({ period, from, to, companyId })}`, { auth: true });
+  }>(`/admin/metricas/content-ranking${q({ period, from, to, companyId })}`, { auth: true });
 }
 
 export async function fetchEngagementMetrics(from?: string, to?: string, companyId?: string) {
@@ -619,7 +619,7 @@ export async function fetchEngagementMetrics(from?: string, to?: string, company
     wave: { contentId: string; count: number }[];
     skillItem: { contentId: string; count: number }[];
     document: { contentId: string; count: number }[];
-  }>(`/admin/metrics/engagement${q({ from, to, companyId })}`, { auth: true });
+  }>(`/admin/metricas/engagement${q({ from, to, companyId })}`, { auth: true });
 }
 
 export async function fetchCohortMetrics(from: string, to: string, companyId?: string) {
@@ -629,7 +629,7 @@ export async function fetchCohortMetrics(from: string, to: string, companyId?: s
     distinctUsersInRange: number;
     weeklyActiveUsersApprox: number;
     dailyActiveUsersByDay: { day: string; users: number }[];
-  }>(`/admin/metrics/cohorts/dau-wau-mau${q({ from, to, companyId })}`, { auth: true });
+  }>(`/admin/metricas/cohorts/dau-wau-mau${q({ from, to, companyId })}`, { auth: true });
 }
 
 export interface CompanyHubLinksDto {
@@ -648,11 +648,11 @@ export interface CompanyHubLinksDto {
 }
 
 export async function fetchCompanyHubLinks(companyId: string) {
-  return apiFetch<CompanyHubLinksDto>(`/admin/companies/${companyId}/hub-links`, { auth: true });
+  return apiFetch<CompanyHubLinksDto>(`/admin/empresas/${companyId}/links-externos`, { auth: true });
 }
 
 export async function putCompanyHubLinks(companyId: string, body: Partial<CompanyHubLinksDto>) {
-  return apiFetch<{ ok: true }>(`/admin/companies/${companyId}/hub-links`, {
+  return apiFetch<{ ok: true }>(`/admin/empresas/${companyId}/links-externos`, {
     method: "PUT",
     auth: true,
     body: JSON.stringify(body),
@@ -660,7 +660,7 @@ export async function putCompanyHubLinks(companyId: string, body: Partial<Compan
 }
 
 export async function offboardUser(userId: string, body?: { reason?: string }) {
-  return apiFetch<{ ok: true }>(`/admin/users/${userId}/offboard`, {
+  return apiFetch<{ ok: true }>(`/admin/usuarios/${userId}/offboard`, {
     method: "POST",
     auth: true,
     body: JSON.stringify(body ?? {}),

@@ -9,14 +9,14 @@ import type {
 } from "./types";
 
 export async function requestOtp(email: string, inviteToken: string): Promise<RequestOtpBody> {
-  return apiFetch<RequestOtpBody>("/auth/request-otp", {
+  return apiFetch<RequestOtpBody>("/auth/signup", {
     method: "POST",
     body: JSON.stringify({ email, inviteToken }),
   });
 }
 
 export async function verifyOtp(email: string, otp: string): Promise<VerifyOtpBody> {
-  return apiFetch<VerifyOtpBody>("/auth/verify-otp", {
+  return apiFetch<VerifyOtpBody>("/auth/verificar-otp", {
     method: "POST",
     body: JSON.stringify({ email, otp }),
   });
@@ -26,7 +26,7 @@ export async function completeSignup(
   registrationToken: string,
   password: string,
 ): Promise<LoginSuccessBody> {
-  return apiFetch<LoginSuccessBody>("/auth/complete-signup", {
+  return apiFetch<LoginSuccessBody>("/auth/finalizar-cadastro", {
     method: "POST",
     body: JSON.stringify({ registrationToken, password }),
   });
@@ -40,7 +40,7 @@ export async function login(email: string, password: string): Promise<LoginSucce
 }
 
 export async function requestPasswordReset(email: string): Promise<MessageBody> {
-  return apiFetch<MessageBody>("/auth/request-password-reset", {
+  return apiFetch<MessageBody>("/auth/forgot-password", {
     method: "POST",
     body: JSON.stringify({ email }),
   });
