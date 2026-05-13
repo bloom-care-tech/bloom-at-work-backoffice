@@ -74,8 +74,8 @@ export function WaveContentsListPage() {
             <p className="font-ui text-sm text-bloom-aubergine/65 mt-1">Qualquer tipo pode ser marcado como exercício. Inclua referências científicas como tipo próprio. Publique para aparecer no app.</p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <PillButton asLink={`/ondas/${ondaId}`} variant="ghost-aubergine">
-              Voltar à onda
+            <PillButton asLink="/ondas" variant="ghost-aubergine">
+              Voltar às ondas
             </PillButton>
             <PillButton asLink={`/ondas/${ondaId}/conteudos/novo`}>Novo conteúdo</PillButton>
           </div>

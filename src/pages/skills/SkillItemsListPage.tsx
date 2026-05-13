@@ -83,8 +83,8 @@ export function SkillItemsListPage() {
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <PillButton asLink={`/habilidades/${skillId}`} variant="ghost-aubergine">
-              Voltar à habilidade
+            <PillButton asLink="/habilidades" variant="ghost-aubergine">
+              Voltar às habilidades
             </PillButton>
             <PillButton asLink={`/habilidades/${skillId}/itens/novo`}>Novo item</PillButton>
           </div>
