@@ -332,14 +332,22 @@ export async function reorderWaveContents(waveId: string, ids: string[]) {
   });
 }
 
-export async function uploadWaveMediaAsset(file: File, kind: "audio" | "pdf") {
+export type EditorialMediaUploadContext = "wave" | "document_map" | "skills";
+
+export async function uploadEditorialMediaAsset(
+  file: File,
+  options: { context: EditorialMediaUploadContext; kind: "audio" | "pdf" },
+) {
   const form = new FormData();
   form.append("file", file);
-  return apiFetch<{ url: string }>(`/admin/contents/media/upload${q({ kind })}`, {
-    method: "POST",
-    auth: true,
-    body: form,
-  });
+  return apiFetch<{ url: string }>(
+    `/admin/contents/media/upload${q({ kind: options.kind, context: options.context })}`,
+    {
+      method: "POST",
+      auth: true,
+      body: form,
+    },
+  );
 }
 
 export interface SkillListItemDto {
@@ -456,6 +464,7 @@ export interface DocumentCategoryDto {
   slug: string;
   name: string;
   description: string | null;
+  accentColor: string;
   sortOrder: number;
   documentCount: number;
   createdAt: string;
@@ -466,11 +475,31 @@ export async function fetchDocumentCategories() {
   return apiFetch<DocumentCategoryDto[]>("/admin/document-categories", { auth: true });
 }
 
-export async function createDocumentCategory(body: { slug: string; name: string; description?: string | null }) {
+export async function fetchDocumentCategory(id: string) {
+  return apiFetch<DocumentCategoryDto>(`/admin/document-categories/${encodeURIComponent(id)}`, { auth: true });
+}
+
+export async function reorderDocumentCategories(ids: string[]) {
+  return apiFetch<{ ok: true }>("/admin/document-categories/reorder", {
+    method: "PATCH",
+    auth: true,
+    body: JSON.stringify({ ids }),
+  });
+}
+
+export async function createDocumentCategory(body: {
+  slug: string;
+  name: string;
+  description?: string | null;
+  accentColor?: string | null;
+}) {
   return apiFetch<{ id: string }>("/admin/document-categories", { method: "POST", auth: true, body: JSON.stringify(body) });
 }
 
-export async function updateDocumentCategory(id: string, body: Partial<{ name: string; description: string | null }>) {
+export async function updateDocumentCategory(
+  id: string,
+  body: Partial<{ name: string; description: string | null; accentColor: string | null }>,
+) {
   return apiFetch<{ ok: true }>(`/admin/document-categories/${id}`, { method: "PATCH", auth: true, body: JSON.stringify(body) });
 }
 
@@ -507,6 +536,20 @@ export async function fetchDocumentsPage(
   );
 }
 
+export async function fetchDocumentsInCategory(categoryId: string, page = 1, limit = 200) {
+  return apiFetch<{ items: DocumentDto[]; page: number; limit: number; total: number }>(
+    `/admin/document-categories/${encodeURIComponent(categoryId)}/documents${q({ page, limit })}`,
+    { auth: true },
+  );
+}
+
+export async function reorderDocumentsInCategory(categoryId: string, ids: string[]) {
+  return apiFetch<{ ok: true }>(
+    `/admin/document-categories/${encodeURIComponent(categoryId)}/documents/reorder`,
+    { method: "PATCH", auth: true, body: JSON.stringify({ ids }) },
+  );
+}
+
 export async function createDocument(body: {
   categoryId: string;
   name: string;
@@ -517,6 +560,27 @@ export async function createDocument(body: {
   publishedAt?: string | null;
 }) {
   return apiFetch<{ id: string }>("/admin/documents", { method: "POST", auth: true, body: JSON.stringify(body) });
+}
+
+export async function createDocumentInCategory(
+  categoryId: string,
+  body: {
+    name: string;
+    description?: string | null;
+    audience?: string;
+    tag?: string;
+    pdfUrl?: string | null;
+    publishedAt?: string | null;
+  },
+) {
+  return apiFetch<{ id: string }>(
+    `/admin/document-categories/${encodeURIComponent(categoryId)}/documents`,
+    { method: "POST", auth: true, body: JSON.stringify(body) },
+  );
+}
+
+export async function fetchDocument(id: string) {
+  return apiFetch<DocumentDto>(`/admin/documents/${encodeURIComponent(id)}`, { auth: true });
 }
 
 export async function updateDocument(

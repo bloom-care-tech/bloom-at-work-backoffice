@@ -8,7 +8,12 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { ApiError } from "@/lib/auth/api-client";
-import { createWaveContent, fetchWaveContent, updateWaveContent, uploadWaveMediaAsset } from "@/lib/admin-api";
+import {
+  createWaveContent,
+  fetchWaveContent,
+  updateWaveContent,
+  uploadEditorialMediaAsset,
+} from "@/lib/admin-api";
 import {
   normalizeWaveContentKindToApi,
   WAVE_CONTENT_KIND_OPTIONS,
@@ -310,7 +315,7 @@ export function WaveContentEditorPage() {
     if (!file || (kind !== "audio" && kind !== "pdf")) return;
     setMediaUploading(true);
     try {
-      const { url } = await uploadWaveMediaAsset(file, kind);
+      const { url } = await uploadEditorialMediaAsset(file, { context: "wave", kind });
       setMediaUrl(url);
       toast("Ficheiro enviado. O endereço foi preenchido automaticamente.");
     } catch (err) {

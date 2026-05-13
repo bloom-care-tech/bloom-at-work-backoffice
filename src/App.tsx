@@ -22,7 +22,10 @@ import { SkillsListPage } from "@/pages/skills/SkillsListPage";
 import { SkillEditorPage } from "@/pages/skills/SkillEditorPage";
 import { SkillItemsListPage } from "@/pages/skills/SkillItemsListPage";
 import { SkillItemEditorPage } from "@/pages/skills/SkillItemEditorPage";
-import { DocumentsHubPage } from "@/pages/documents/DocumentsHubPage";
+import { DocumentCategoriesListPage } from "@/pages/documents/DocumentCategoriesListPage";
+import { DocumentCategoryEditorPage } from "@/pages/documents/DocumentCategoryEditorPage";
+import { CategoryDocumentsListPage } from "@/pages/documents/CategoryDocumentsListPage";
+import { CategoryDocumentEditorPage } from "@/pages/documents/CategoryDocumentEditorPage";
 import { MetricsPage } from "@/pages/metrics/MetricsPage";
 import { ExternalLinksHelpPage } from "@/pages/links/ExternalLinksHelpPage";
 
@@ -60,7 +63,12 @@ const App = () => (
               <Route path="habilidades/:skillId/itens" element={<SkillItemsListPage />} />
               <Route path="habilidades/:skillId" element={<SkillEditorPage />} />
               <Route path="habilidades" element={<SkillsListPage />} />
-              <Route path="mapa-documentos" element={<DocumentsHubPage />} />
+              <Route path="mapa-documentos/nova" element={<DocumentCategoryEditorPage />} />
+              <Route path="mapa-documentos/:categoryId/documentos/novo" element={<CategoryDocumentEditorPage />} />
+              <Route path="mapa-documentos/:categoryId/documentos/:documentId" element={<CategoryDocumentEditorPage />} />
+              <Route path="mapa-documentos/:categoryId/documentos" element={<CategoryDocumentsListPage />} />
+              <Route path="mapa-documentos/:categoryId" element={<DocumentCategoryEditorPage />} />
+              <Route path="mapa-documentos" element={<DocumentCategoriesListPage />} />
               <Route path="metricas" element={<MetricsPage />} />
               <Route path="links-externos" element={<ExternalLinksHelpPage />} />
             </Route>

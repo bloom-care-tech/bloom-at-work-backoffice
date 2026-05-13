@@ -6,7 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { ApiError } from "@/lib/auth/api-client";
-import { createSkillItem, fetchSkillById, fetchSkillItemById, updateSkillItem, uploadWaveMediaAsset } from "@/lib/admin-api";
+import {
+  createSkillItem,
+  fetchSkillById,
+  fetchSkillItemById,
+  updateSkillItem,
+  uploadEditorialMediaAsset,
+} from "@/lib/admin-api";
 import { SKILL_ITEM_TYPE_OPTIONS, type SkillItemTypeApi } from "@/lib/skill-item-labels";
 
 const inputCls =
@@ -231,7 +237,7 @@ export function SkillItemEditorPage() {
     if (!file || (type !== "audio" && type !== "pdf")) return;
     setMediaUploading(true);
     try {
-      const { url } = await uploadWaveMediaAsset(file, type);
+      const { url } = await uploadEditorialMediaAsset(file, { context: "skills", kind: type });
       if (type === "audio") setAudioUrl(url);
       else setPdfUrl(url);
       toast("Ficheiro enviado. O endereço foi preenchido automaticamente.");

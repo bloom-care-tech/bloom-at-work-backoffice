@@ -97,7 +97,10 @@ describe("api-client", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 200 }));
     const fd = new FormData();
     fd.append("file", new Blob(["x"], { type: "application/pdf" }), "x.pdf");
-    await apiFetch("/admin/contents/media/upload?kind=pdf", { method: "POST", body: fd });
+    await apiFetch("/admin/contents/media/upload?kind=pdf&context=wave", {
+      method: "POST",
+      body: fd,
+    });
     const [, init] = vi.mocked(globalThis.fetch).mock.calls[0]!;
     const headers = new Headers((init as RequestInit).headers);
     expect(headers.get("Content-Type")).toBeNull();
