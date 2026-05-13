@@ -91,10 +91,17 @@ export function articleExtrasFromPayload(payload: Record<string, unknown>): Reco
   return omitKeys(payload, ARTICLE_STRIP_KEYS);
 }
 
-export type RefFormRow = { titulo: string; autores: string; fonte: string; doi: string; numero: string };
+export type RefFormRow = {
+  titulo: string;
+  descricao: string;
+  autores: string;
+  fonte: string;
+  doi: string;
+  numero: string;
+};
 
 export function emptyRefRow(): RefFormRow {
-  return { titulo: "", autores: "", fonte: "", doi: "", numero: "" };
+  return { titulo: "", descricao: "", autores: "", fonte: "", doi: "", numero: "" };
 }
 
 export function refsFromPayload(payload: Record<string, unknown>): RefFormRow[] {
@@ -107,8 +114,15 @@ export function refsFromPayload(payload: Record<string, unknown>): RefFormRow[] 
     const n = o.numero;
     const numeroStr =
       typeof n === "number" && Number.isFinite(n) ? String(n) : typeof n === "string" ? n : "";
+    const desc =
+      typeof o.descricao === "string"
+        ? o.descricao
+        : typeof o.description === "string"
+          ? o.description
+          : "";
     rows.push({
       titulo: typeof o.titulo === "string" ? o.titulo : "",
+      descricao: desc,
       autores: typeof o.autores === "string" ? o.autores : "",
       fonte: typeof o.fonte === "string" ? o.fonte : "",
       doi: typeof o.doi === "string" ? o.doi : "",
@@ -127,6 +141,8 @@ export function buildReferenciasForApi(rows: RefFormRow[]): Record<string, unkno
       fonte: r.fonte.trim(),
       doi: r.doi.trim(),
     };
+    const rd = r.descricao.trim();
+    if (rd) o.descricao = rd;
     const n = r.numero.trim();
     if (n) {
       const parsed = parseInt(n, 10);
