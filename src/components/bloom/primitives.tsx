@@ -79,8 +79,7 @@ export const FadeIn = ({
   return (
     <MotionTag
       initial={reduce ? { opacity: 0 } : { opacity: 0, y: 12 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-80px" }}
+      animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.52, ease, delay }}
       className={className}
     >

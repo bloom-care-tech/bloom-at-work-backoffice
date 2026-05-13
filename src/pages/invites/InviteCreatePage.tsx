@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { FadeIn, Eyebrow, PillButton } from "@/components/bloom/primitives";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { ApiError } from "@/lib/auth/api-client";
-import { createInvite, fetchCompaniesPage } from "@/lib/admin-api";
+import { useAdminCompaniesForSelect } from "@/hooks/use-admin-companies-select";
+import { createInvite } from "@/lib/admin-api";
 
 const inputCls =
   "w-full bg-bloom-cream-deep border border-bloom-aubergine/10 rounded-xl px-4 py-3 font-ui text-sm text-bloom-aubergine focus:outline-none focus:border-bloom-garnet transition-colors duration-260 ease-bloom";
@@ -13,13 +14,10 @@ const inputCls =
 export function InviteCreatePage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { data: companies } = useQuery({
-    queryKey: ["companies", "all-select"],
-    queryFn: () => fetchCompaniesPage(1, 200),
-  });
+  const { data: companies, isError, isLoading } = useAdminCompaniesForSelect();
 
   const [companyId, setCompanyId] = useState("");
-  const [role, setRole] = useState("colaborador");
+  const [role, setRole] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
 
   const create = useMutation({
@@ -62,30 +60,59 @@ export function InviteCreatePage() {
               toast("Selecione a empresa.");
               return;
             }
+            if (!role) {
+              toast("Selecione o papel.");
+              return;
+            }
             create.mutate();
           }}
         >
           <div className="space-y-2">
-            <Label className="font-ui text-bloom-aubergine/80">Empresa</Label>
-            <select className={inputCls} value={companyId} onChange={(e) => setCompanyId(e.target.value)} required>
-              <option value="">Selecione…</option>
+            <Label htmlFor="invite-company" className="font-ui text-bloom-aubergine/80">
+              Empresa
+            </Label>
+            <select
+              id="invite-company"
+              className={inputCls}
+              value={companyId}
+              onChange={(e) => setCompanyId(e.target.value)}
+              required
+              disabled={isLoading || isError}
+            >
+              <option value="">
+                {isLoading ? "Carregando empresas…" : isError ? "Não foi possível carregar empresas" : "Selecione…"}
+              </option>
               {companies?.items.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
                 </option>
               ))}
             </select>
+            {isError && (
+              <p className="font-ui text-xs text-bloom-garnet">Verifique a conexão e tente recarregar a página.</p>
+            )}
           </div>
           <div className="space-y-2">
-            <Label className="font-ui text-bloom-aubergine/80">Papel do novo usuário</Label>
-            <select className={inputCls} value={role} onChange={(e) => setRole(e.target.value)}>
+            <Label htmlFor="invite-role" className="font-ui text-bloom-aubergine/80">
+              Papel do novo usuário
+            </Label>
+            <select id="invite-role" className={inputCls} value={role} onChange={(e) => setRole(e.target.value)} required>
+              <option value="">Selecione…</option>
               <option value="colaborador">Colaborador</option>
               <option value="lider">Líder</option>
             </select>
           </div>
           <div className="space-y-2">
-            <Label className="font-ui text-bloom-aubergine/80">Data de expiração (opcional)</Label>
-            <input className={inputCls} type="datetime-local" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
+            <Label htmlFor="invite-expires" className="font-ui text-bloom-aubergine/80">
+              Data de expiração (opcional)
+            </Label>
+            <input
+              id="invite-expires"
+              className={inputCls}
+              type="datetime-local"
+              value={expiresAt}
+              onChange={(e) => setExpiresAt(e.target.value)}
+            />
           </div>
           <div className="flex flex-wrap gap-3 pt-2">
             <PillButton type="submit" disabled={create.isPending}>

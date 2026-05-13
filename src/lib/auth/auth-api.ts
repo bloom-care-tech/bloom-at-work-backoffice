@@ -78,6 +78,11 @@ export async function getMe(accessToken: string): Promise<MeUserJson> {
   });
 }
 
+/** Uses persisted Bearer + refresh (see {@link apiFetch} `auth: true`). */
+export async function getMeAuthed(): Promise<MeUserJson> {
+  return apiFetch<MeUserJson>("/api/me", { method: "GET", auth: true });
+}
+
 export interface CompleteFirstAccessPayload {
   name?: string;
   displayName?: string;
@@ -89,24 +94,5 @@ export async function completeFirstAccess(payload: CompleteFirstAccessPayload): 
     method: "POST",
     auth: true,
     body: JSON.stringify(payload),
-  });
-}
-
-export interface BackofficeLoginBody {
-  accessToken: string;
-  expiresIn: number;
-}
-
-export async function backofficeLogin(username: string, password: string): Promise<BackofficeLoginBody> {
-  return apiFetch<BackofficeLoginBody>("/admin/backoffice/login", {
-    method: "POST",
-    body: JSON.stringify({ username, password }),
-  });
-}
-
-export async function backofficeSessionPing(): Promise<{ ok: true }> {
-  return apiFetch<{ ok: true }>("/admin/backoffice/session", {
-    method: "GET",
-    auth: true,
   });
 }

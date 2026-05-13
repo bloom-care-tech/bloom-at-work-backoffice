@@ -4,17 +4,52 @@ import { Link } from "react-router-dom";
 import { Plus, PencilSimple, Trash, DownloadSimple } from "@phosphor-icons/react";
 import { FadeIn, Eyebrow, PillButton } from "@/components/bloom/primitives";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { ApiError } from "@/lib/auth/api-client";
+import { useAdminCompaniesForSelect } from "@/hooks/use-admin-companies-select";
+import { filterInputCls, filterSelectCls } from "@/lib/backoffice-filters";
 import { deleteQuote, downloadQuoteTemplateXlsx, fetchQuotesPage } from "@/lib/admin-api";
 import { triggerBlobDownload } from "@/lib/download-blob";
+
+type QuoteAudienceFilter = "" | "all" | "leader" | "collaborator";
+
+const newQuoteDraft = () => ({
+  search: "",
+  companyId: "",
+  audience: "" as QuoteAudienceFilter,
+  active: "any" as "any" | "yes" | "no",
+  from: "",
+  to: "",
+});
 
 export function QuotesListPage() {
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
+  const [draft, setDraft] = useState(newQuoteDraft);
+  const [applied, setApplied] = useState({
+    search: "",
+    companyId: "",
+    audience: "" as QuoteAudienceFilter,
+    active: undefined as boolean | undefined,
+    from: "",
+    to: "",
+  });
+
+  const { data: companiesSelect, isLoading: companiesLoading } = useAdminCompaniesForSelect();
+
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["quotes", page],
-    queryFn: () => fetchQuotesPage(page, 15),
+    queryKey: ["quotes", page, applied],
+    queryFn: () =>
+      fetchQuotesPage(page, 15, {
+        search: applied.search || undefined,
+        companyId: applied.companyId || undefined,
+        audience: applied.audience || undefined,
+        active: applied.active,
+        from: applied.from || undefined,
+        to: applied.to || undefined,
+      }),
   });
 
   const del = useMutation({
@@ -35,6 +70,31 @@ export function QuotesListPage() {
     } catch (e) {
       toast(e instanceof ApiError ? e.message : "Erro no download.");
     }
+  };
+
+  const applyFilters = () => {
+    setApplied({
+      search: draft.search.trim(),
+      companyId: draft.companyId,
+      audience: draft.audience,
+      active: draft.active === "any" ? undefined : draft.active === "yes",
+      from: draft.from,
+      to: draft.to,
+    });
+    setPage(1);
+  };
+
+  const clearFilters = () => {
+    setDraft(newQuoteDraft());
+    setApplied({
+      search: "",
+      companyId: "",
+      audience: "",
+      active: undefined,
+      from: "",
+      to: "",
+    });
+    setPage(1);
   };
 
   return (
@@ -61,11 +121,120 @@ export function QuotesListPage() {
           </PillButton>
         </div>
       </div>
+
+      <FadeIn delay={0.04}>
+        <div className="rounded-2xl border border-bloom-aubergine/10 bg-white/90 p-4 md:p-5 space-y-3">
+          <p className="font-ui text-xs text-bloom-aubergine/60 uppercase tracking-wide">Filtros</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div className="space-y-1 sm:col-span-2">
+              <Label htmlFor="quotes-filter-search" className="font-ui text-xs text-bloom-aubergine/70">
+                Texto ou autor
+              </Label>
+              <Input
+                id="quotes-filter-search"
+                value={draft.search}
+                onChange={(e) => setDraft((d) => ({ ...d, search: e.target.value }))}
+                placeholder="Contém…"
+                className="rounded-xl border-bloom-aubergine/15 max-w-xl"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    applyFilters();
+                  }
+                }}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="quotes-filter-company" className="font-ui text-xs text-bloom-aubergine/70">
+                Empresa (escopo)
+              </Label>
+              <select
+                id="quotes-filter-company"
+                className={filterSelectCls}
+                value={draft.companyId}
+                onChange={(e) => setDraft((d) => ({ ...d, companyId: e.target.value }))}
+                disabled={companiesLoading}
+              >
+                <option value="">Todas + globais</option>
+                {companiesSelect?.items.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="quotes-filter-audience" className="font-ui text-xs text-bloom-aubergine/70">
+                Audiência
+              </Label>
+              <select
+                id="quotes-filter-audience"
+                className={filterSelectCls}
+                value={draft.audience}
+                onChange={(e) => setDraft((d) => ({ ...d, audience: e.target.value as QuoteAudienceFilter }))}
+              >
+                <option value="">Todas</option>
+                <option value="all">Todos (público)</option>
+                <option value="leader">Líderes</option>
+                <option value="collaborator">Colaboradores</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="quotes-filter-active" className="font-ui text-xs text-bloom-aubergine/70">
+                Publicação ativa
+              </Label>
+              <select
+                id="quotes-filter-active"
+                className={filterSelectCls}
+                value={draft.active}
+                onChange={(e) => setDraft((d) => ({ ...d, active: e.target.value as "any" | "yes" | "no" }))}
+              >
+                <option value="any">Todas</option>
+                <option value="yes">Sim</option>
+                <option value="no">Não</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="quotes-filter-from" className="font-ui text-xs text-bloom-aubergine/70">
+                Data publicação (de)
+              </Label>
+              <input
+                id="quotes-filter-from"
+                type="date"
+                className={filterInputCls}
+                value={draft.from}
+                onChange={(e) => setDraft((d) => ({ ...d, from: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="quotes-filter-to" className="font-ui text-xs text-bloom-aubergine/70">
+                Data publicação (até)
+              </Label>
+              <input
+                id="quotes-filter-to"
+                type="date"
+                className={filterInputCls}
+                value={draft.to}
+                onChange={(e) => setDraft((d) => ({ ...d, to: e.target.value }))}
+              />
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Button type="button" className="rounded-full bg-bloom-garnet hover:bg-bloom-garnet/90" onClick={applyFilters}>
+              Aplicar
+            </Button>
+            <Button type="button" variant="outline" className="rounded-full border-bloom-aubergine/20" onClick={clearFilters}>
+              Limpar
+            </Button>
+          </div>
+        </div>
+      </FadeIn>
+
       <FadeIn delay={0.05}>
         <div className="rounded-2xl border border-bloom-aubergine/10 bg-white/90 overflow-x-auto">
           <table className="w-full font-ui text-sm min-w-[720px]">
             <thead>
-              <tr className="bg-bloom-cream-deep/80 text-bloom-aubergine/70 text-left text-[11px] uppercase tracking-wide">
+              <tr className="bg-bloom-plum/15 border-b border-bloom-aubergine/10 text-bloom-aubergine/75 text-left text-[11px] uppercase tracking-wide">
                 <th className="px-4 py-3">Data</th>
                 <th className="px-4 py-3">Texto</th>
                 <th className="px-4 py-3">Autor</th>

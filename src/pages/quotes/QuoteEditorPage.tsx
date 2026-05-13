@@ -3,10 +3,12 @@ import { useMatch, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FadeIn, Eyebrow, PillButton } from "@/components/bloom/primitives";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/sonner";
 import { ApiError } from "@/lib/auth/api-client";
-import { createQuote, fetchCompaniesPage, fetchQuote, updateQuote } from "@/lib/admin-api";
+import { useAdminCompaniesForSelect } from "@/hooks/use-admin-companies-select";
+import { createQuote, fetchQuote, updateQuote } from "@/lib/admin-api";
 
 const inputCls =
   "w-full bg-bloom-cream-deep border border-bloom-aubergine/10 rounded-xl px-4 py-3 font-ui text-sm text-bloom-aubergine placeholder:text-bloom-aubergine/40 focus:outline-none focus:border-bloom-garnet transition-colors duration-260 ease-bloom";
@@ -18,10 +20,7 @@ export function QuoteEditorPage() {
   const { quoteId } = useParams<{ quoteId: string }>();
   const id = isNew ? undefined : quoteId;
 
-  const { data: companies } = useQuery({
-    queryKey: ["companies", "select-quotes"],
-    queryFn: () => fetchCompaniesPage(1, 200),
-  });
+  const { data: companies } = useAdminCompaniesForSelect();
 
   const { data, isLoading } = useQuery({
     queryKey: ["quote", id],
@@ -144,10 +143,12 @@ export function QuoteEditorPage() {
                 <option value="collaborator">Colaboradores</option>
               </select>
             </div>
-            <label className="flex items-center gap-3 font-ui text-sm text-bloom-aubergine cursor-pointer">
-              <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} className="rounded border-bloom-aubergine/30" />
-              Frase ativa
-            </label>
+            <div className="flex items-center gap-3">
+              <Label htmlFor="quote-active" className="font-ui text-sm text-bloom-aubergine cursor-pointer">
+                Frase ativa
+              </Label>
+              <Switch id="quote-active" checked={active} onCheckedChange={setActive} />
+            </div>
             <div className="flex flex-wrap gap-3 pt-2">
               <PillButton type="submit" disabled={save.isPending}>
                 {save.isPending ? "Salvando…" : "Salvar"}

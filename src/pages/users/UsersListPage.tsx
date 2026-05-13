@@ -6,16 +6,38 @@ import { FadeIn, Eyebrow } from "@/components/bloom/primitives";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAdminCompaniesForSelect } from "@/hooks/use-admin-companies-select";
+import { filterSelectCls } from "@/lib/backoffice-filters";
 import { fetchUsersPage } from "@/lib/admin-api";
 
 export function UsersListPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [q, setQ] = useState("");
+  const [companyId, setCompanyId] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
+  const [appliedCompanyId, setAppliedCompanyId] = useState("");
+
+  const { data: companiesSelect, isLoading: companiesLoading } = useAdminCompaniesForSelect();
+
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["users", page, q],
-    queryFn: () => fetchUsersPage(page, 15, undefined, q || undefined),
+    queryKey: ["users", page, appliedSearch, appliedCompanyId],
+    queryFn: () =>
+      fetchUsersPage(page, 15, appliedCompanyId || undefined, appliedSearch || undefined),
   });
+
+  const applyFilters = () => {
+    setAppliedSearch(search.trim());
+    setAppliedCompanyId(companyId);
+    setPage(1);
+  };
+
+  const clearFilters = () => {
+    setSearch("");
+    setCompanyId("");
+    setAppliedSearch("");
+    setAppliedCompanyId("");
+    setPage(1);
+  };
 
   return (
     <div className="max-w-6xl space-y-6">
@@ -25,28 +47,62 @@ export function UsersListPage() {
         <p className="font-ui text-sm text-bloom-aubergine/65 mt-1">Visualize e edite perfis. O e-mail não pode ser alterado aqui.</p>
       </FadeIn>
       <FadeIn delay={0.05}>
-        <form
-          className="flex flex-col sm:flex-row gap-3 max-w-lg"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setQ(search.trim());
-            setPage(1);
-          }}
-        >
-          <div className="flex-1 space-y-1">
-            <Label className="font-ui text-xs text-bloom-aubergine/70">Buscar por nome</Label>
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Digite e pressione Enter" />
+        <div className="rounded-2xl border border-bloom-aubergine/10 bg-white/90 p-4 md:p-5 space-y-3">
+          <p className="font-ui text-xs text-bloom-aubergine/60 uppercase tracking-wide">Filtros</p>
+          <div className="flex flex-col xl:flex-row flex-wrap gap-4 xl:items-end">
+            <div className="space-y-1 flex-1 min-w-[12rem] max-w-md">
+              <Label htmlFor="users-filter-search" className="font-ui text-xs text-bloom-aubergine/70">
+                Nome ou nome de exibição
+              </Label>
+              <Input
+                id="users-filter-search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar…"
+                className="rounded-xl border-bloom-aubergine/15"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    applyFilters();
+                  }
+                }}
+              />
+            </div>
+            <div className="space-y-1 w-full max-w-[14rem]">
+              <Label htmlFor="users-filter-company" className="font-ui text-xs text-bloom-aubergine/70">
+                Empresa
+              </Label>
+              <select
+                id="users-filter-company"
+                className={filterSelectCls}
+                value={companyId}
+                onChange={(e) => setCompanyId(e.target.value)}
+                disabled={companiesLoading}
+              >
+                <option value="">Todas</option>
+                {companiesSelect?.items.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" className="rounded-full bg-bloom-garnet hover:bg-bloom-garnet/90" onClick={applyFilters}>
+                Aplicar
+              </Button>
+              <Button type="button" variant="outline" className="rounded-full border-bloom-aubergine/20" onClick={clearFilters}>
+                Limpar
+              </Button>
+            </div>
           </div>
-          <Button type="submit" className="self-end rounded-full bg-bloom-garnet hover:bg-bloom-garnet/90">
-            Buscar
-          </Button>
-        </form>
+        </div>
       </FadeIn>
       <FadeIn delay={0.08}>
         <div className="rounded-2xl border border-bloom-aubergine/10 bg-white/90 overflow-hidden overflow-x-auto">
           <table className="w-full font-ui text-sm min-w-[640px]">
             <thead>
-              <tr className="bg-bloom-cream-deep/80 text-bloom-aubergine/70 text-left text-[11px] uppercase tracking-wide">
+              <tr className="bg-bloom-plum/15 border-b border-bloom-aubergine/10 text-bloom-aubergine/75 text-left text-[11px] uppercase tracking-wide">
                 <th className="px-4 py-3">Nome</th>
                 <th className="px-4 py-3">E-mail</th>
                 <th className="px-4 py-3">Empresa</th>

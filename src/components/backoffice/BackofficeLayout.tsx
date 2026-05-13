@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Buildings, House, SignOut, Users, LinkSimple, Sparkle } from "@phosphor-icons/react";
+import { Buildings, House, SignOut, Users, LinkSimple, Sparkle, WaveSine, Brain, MapTrifold, ChartBar, ShareNetwork } from "@phosphor-icons/react";
 import grupoBoticarioLogo from "@/assets/grupo-boticario.png";
 import { TrustLine } from "@/components/bloom/primitives";
 import { useBackofficeSession } from "@/lib/backoffice-session";
@@ -66,6 +66,26 @@ export function BackofficeLayout() {
               <Sparkle size={20} weight="duotone" />
               Bloom do dia
             </NavLink>
+            <NavLink to="/ondas" className={navClass}>
+              <WaveSine size={20} weight="duotone" />
+              Ondas
+            </NavLink>
+            <NavLink to="/habilidades" className={navClass}>
+              <Brain size={20} weight="duotone" />
+              Habilidades
+            </NavLink>
+            <NavLink to="/mapa-documentos" className={navClass}>
+              <MapTrifold size={20} weight="duotone" />
+              Mapa de documentos
+            </NavLink>
+            <NavLink to="/metricas" className={navClass}>
+              <ChartBar size={20} weight="duotone" />
+              Métricas
+            </NavLink>
+            <NavLink to="/links-externos" className={navClass}>
+              <ShareNetwork size={20} weight="duotone" />
+              Links externos
+            </NavLink>
           </nav>
           <div className="p-3 border-t border-bloom-cream/10">
             <button
@@ -107,6 +127,11 @@ export function BackofficeLayout() {
                 { to: "/usuarios", label: "Usuários" },
                 { to: "/convites", label: "Convites" },
                 { to: "/frases", label: "Frases" },
+                { to: "/ondas", label: "Ondas" },
+                { to: "/habilidades", label: "Habil." },
+                { to: "/mapa-documentos", label: "Mapa" },
+                { to: "/metricas", label: "Métricas" },
+                { to: "/links-externos", label: "Links" },
               ].map((l) => (
                 <NavLink
                   key={l.to}

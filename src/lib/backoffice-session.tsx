@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { backofficeSessionPing } from "@/lib/auth/auth-api";
-import { readPersistedAuth, writePersistedAuth, type PersistedAuth } from "@/lib/auth/session-storage";
+import { getMeAuthed, logoutUserSession } from "@/lib/auth/auth-api";
+import { readPersistedAuth, writePersistedAuth, replacePersistedMe, type PersistedAuth } from "@/lib/auth/session-storage";
 
 interface BackofficeSessionValue {
   auth: PersistedAuth | null;
@@ -20,12 +20,28 @@ export function BackofficeSessionProvider({ children }: { children: ReactNode })
   }, []);
 
   const signOut = useCallback(() => {
-    writePersistedAuth(null);
+    const p = readPersistedAuth();
+    void (async () => {
+      if (p?.accessToken) {
+        try {
+          await logoutUserSession(p.accessToken);
+        } catch {
+          /* ignore */
+        }
+      }
+      writePersistedAuth(null);
+    })();
   }, []);
 
   const refreshMe = useCallback(async () => {
-    await backofficeSessionPing();
-    setAuth(readPersistedAuth());
+    try {
+      const me = await getMeAuthed();
+      replacePersistedMe(me);
+      setAuth(readPersistedAuth());
+    } catch {
+      writePersistedAuth(null);
+      setAuth(null);
+    }
   }, []);
 
   const value = useMemo(

@@ -3,9 +3,10 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FadeIn, Eyebrow, PillButton } from "@/components/bloom/primitives";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/sonner";
 import { ApiError } from "@/lib/auth/api-client";
-import { fetchUser, updateUser } from "@/lib/admin-api";
+import { fetchUser, offboardUser, updateUser } from "@/lib/admin-api";
 
 const inputCls =
   "w-full bg-bloom-cream-deep border border-bloom-aubergine/10 rounded-xl px-4 py-3 font-ui text-sm text-bloom-aubergine placeholder:text-bloom-aubergine/40 focus:outline-none focus:border-bloom-garnet transition-colors duration-260 ease-bloom";
@@ -34,6 +35,17 @@ export function UserEditorPage() {
     setStatus(data.status ?? "ativo");
     setIsAdmin(data.isAdmin);
   }, [data]);
+
+  const offboard = useMutation({
+    mutationFn: () => offboardUser(userId!),
+    onSuccess: () => {
+      toast("Usuário desligado e sessões revogadas.");
+      void qc.invalidateQueries({ queryKey: ["users"] });
+      void qc.invalidateQueries({ queryKey: ["dashboard", "summary"] });
+      navigate("/usuarios");
+    },
+    onError: (e) => toast(e instanceof ApiError ? e.message : "Erro ao desligar."),
+  });
 
   const save = useMutation({
     mutationFn: () =>
@@ -99,10 +111,12 @@ export function UserEditorPage() {
                 <option value="desligado">Desligado</option>
               </select>
             </div>
-            <label className="flex items-center gap-3 font-ui text-sm text-bloom-aubergine cursor-pointer">
-              <input type="checkbox" checked={isAdmin} onChange={(e) => setIsAdmin(e.target.checked)} className="rounded border-bloom-aubergine/30" />
-              Administrador da plataforma
-            </label>
+            <div className="flex items-center gap-3">
+              <Label htmlFor="user-is-admin" className="font-ui text-sm text-bloom-aubergine cursor-pointer">
+                Administrador da plataforma
+              </Label>
+              <Switch id="user-is-admin" checked={isAdmin} onCheckedChange={setIsAdmin} />
+            </div>
             <div className="flex flex-wrap gap-3 pt-2">
               <PillButton type="submit" disabled={save.isPending}>
                 {save.isPending ? "Salvando…" : "Salvar"}
@@ -110,6 +124,19 @@ export function UserEditorPage() {
               <PillButton type="button" variant="ghost-aubergine" onClick={() => navigate("/usuarios")}>
                 Voltar
               </PillButton>
+              {data.status !== "desligado" && !data.isAdmin && (
+                <PillButton
+                  type="button"
+                  variant="ghost-aubergine"
+                  className="text-bloom-garnet border-bloom-garnet/40"
+                  disabled={offboard.isPending}
+                  onClick={() => {
+                    if (window.confirm("Desligar usuário, revogar sessões e bloquear acesso?")) offboard.mutate();
+                  }}
+                >
+                  {offboard.isPending ? "Desligando…" : "Desligar usuário"}
+                </PillButton>
+              )}
             </div>
           </form>
         </FadeIn>

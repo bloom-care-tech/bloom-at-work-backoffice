@@ -4,7 +4,7 @@ import { Eyebrow, FadeIn, PillButton, TrustLine } from "@/components/bloom/primi
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { ApiError } from "@/lib/auth/api-client";
-import { backofficeLogin } from "@/lib/auth/auth-api";
+import { getMe, login } from "@/lib/auth/auth-api";
 import { writePersistedAuth } from "@/lib/auth/session-storage";
 import { useBackofficeSession } from "@/lib/backoffice-session";
 
@@ -14,18 +14,19 @@ const inputCls =
 export function LoginPage() {
   const navigate = useNavigate();
   const { auth } = useBackofficeSession();
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (auth?.kind === "backoffice") navigate("/", { replace: true });
+    if (auth?.kind === "backoffice" && auth.me.isAdmin) navigate("/", { replace: true });
   }, [auth, navigate]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username.trim()) {
-      toast("Informe o usuário.");
+    const em = email.trim().toLowerCase();
+    if (!em) {
+      toast("Informe o e-mail.");
       return;
     }
     if (!password) {
@@ -34,10 +35,21 @@ export function LoginPage() {
     }
     setBusy(true);
     try {
-      const res = await backofficeLogin(username.trim(), password);
+      const res = await login(em, password);
+      if (!res.user.isAdmin) {
+        toast("Sua conta não tem permissão de administrador para este painel.");
+        return;
+      }
+      const me = await getMe(res.accessToken);
+      if (!me.isAdmin) {
+        toast("Sua conta não tem permissão de administrador para este painel.");
+        return;
+      }
       writePersistedAuth({
         kind: "backoffice",
         accessToken: res.accessToken,
+        refreshToken: res.refreshToken,
+        me,
         createdAt: new Date().toISOString(),
       });
       toast("Sessão iniciada.");
@@ -60,23 +72,23 @@ export function LoginPage() {
               bloom<span className="italic">@</span>work
             </h1>
             <p className="font-ui text-sm text-bloom-aubergine/65 mt-2">
-              Credenciais definidas no servidor (variáveis de ambiente da API).
+              Entre com o mesmo e-mail e senha do hub. Apenas contas com perfil administrador podem acessar.
             </p>
           </div>
 
           <form onSubmit={onSubmit} className="space-y-5 bg-white/70 border border-bloom-aubergine/10 rounded-2xl p-8 shadow-sm">
             <div className="space-y-2">
-              <Label htmlFor="username" className="font-ui text-bloom-aubergine/80">
-                Usuário
+              <Label htmlFor="email" className="font-ui text-bloom-aubergine/80">
+                E-mail
               </Label>
               <input
-                id="username"
-                type="text"
+                id="email"
+                type="email"
                 autoComplete="username"
-                value={username}
-                onChange={(ev) => setUsername(ev.target.value)}
+                value={email}
+                onChange={(ev) => setEmail(ev.target.value)}
                 className={inputCls}
-                placeholder="Usuário configurado na API"
+                placeholder="admin@bloom-care.com"
               />
             </div>
             <div className="space-y-2">
@@ -98,12 +110,12 @@ export function LoginPage() {
           </form>
 
           <p className="text-center mt-8 font-ui text-xs text-bloom-aubergine/55">
-            Após autenticar, você será levado ao console de APIs.
+            Após autenticar, você será levado ao painel administrativo.
           </p>
         </FadeIn>
       </div>
       <footer className="py-6">
-        <TrustLine>acesso restrito · credenciais na API (BACKOFFICE_*)</TrustLine>
+        <TrustLine>acesso restrito · administradores Bloom</TrustLine>
       </footer>
     </div>
   );

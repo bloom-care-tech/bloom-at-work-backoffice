@@ -8,7 +8,10 @@
     "moduleDetection": "force",
     "moduleResolution": "bundler",
     "noEmit": true,
-    "paths": { "@/*": ["./src/*"] },
+    "paths": {
+      "@/*": ["./src/*"],
+      "@bloom-at-work/*": ["../bloom-at-work/src/*"]
+    },
     "skipLibCheck": true,
     "strict": false,
     "target": "ES2020",

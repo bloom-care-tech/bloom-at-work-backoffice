@@ -4,16 +4,28 @@ import { Link } from "react-router-dom";
 import { Plus, PencilSimple, Trash } from "@phosphor-icons/react";
 import { FadeIn, Eyebrow, PillButton } from "@/components/bloom/primitives";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { ApiError } from "@/lib/auth/api-client";
+import { filterSelectCls } from "@/lib/backoffice-filters";
 import { deleteCompany, fetchCompaniesPage } from "@/lib/admin-api";
 
 export function CompaniesListPage() {
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
+  const [draftName, setDraftName] = useState("");
+  const [draftActive, setDraftActive] = useState<"any" | "yes" | "no">("any");
+  const [appliedName, setAppliedName] = useState("");
+  const [appliedActive, setAppliedActive] = useState<boolean | undefined>(undefined);
+
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["companies", page],
-    queryFn: () => fetchCompaniesPage(page, 15),
+    queryKey: ["companies", page, appliedName, appliedActive],
+    queryFn: () =>
+      fetchCompaniesPage(page, 15, {
+        search: appliedName || undefined,
+        active: appliedActive,
+      }),
   });
 
   const del = useMutation({
@@ -25,6 +37,20 @@ export function CompaniesListPage() {
     },
     onError: (e) => toast(e instanceof ApiError ? e.message : "Não foi possível excluir."),
   });
+
+  const applyFilters = () => {
+    setAppliedName(draftName.trim());
+    setAppliedActive(draftActive === "any" ? undefined : draftActive === "yes");
+    setPage(1);
+  };
+
+  const clearFilters = () => {
+    setDraftName("");
+    setDraftActive("any");
+    setAppliedName("");
+    setAppliedActive(undefined);
+    setPage(1);
+  };
 
   return (
     <div className="max-w-5xl space-y-6">
@@ -40,12 +66,61 @@ export function CompaniesListPage() {
         </PillButton>
       </div>
 
+      <FadeIn delay={0.04}>
+        <div className="rounded-2xl border border-bloom-aubergine/10 bg-white/90 p-4 md:p-5 space-y-3">
+          <p className="font-ui text-xs text-bloom-aubergine/60 uppercase tracking-wide">Filtros</p>
+          <div className="flex flex-col lg:flex-row flex-wrap gap-4 lg:items-end">
+            <div className="space-y-1 flex-1 min-w-[12rem] max-w-xs">
+              <Label htmlFor="company-filter-name" className="font-ui text-xs text-bloom-aubergine/70">
+                Nome da empresa
+              </Label>
+              <Input
+                id="company-filter-name"
+                value={draftName}
+                onChange={(e) => setDraftName(e.target.value)}
+                placeholder="Contém…"
+                className="rounded-xl border-bloom-aubergine/15"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    applyFilters();
+                  }
+                }}
+              />
+            </div>
+            <div className="space-y-1 w-full max-w-[14rem]">
+              <Label htmlFor="company-filter-active" className="font-ui text-xs text-bloom-aubergine/70">
+                Situação
+              </Label>
+              <select
+                id="company-filter-active"
+                className={filterSelectCls}
+                value={draftActive}
+                onChange={(e) => setDraftActive(e.target.value as "any" | "yes" | "no")}
+              >
+                <option value="any">Todas</option>
+                <option value="yes">Ativas</option>
+                <option value="no">Inativas</option>
+              </select>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" className="rounded-full bg-bloom-garnet hover:bg-bloom-garnet/90" onClick={applyFilters}>
+                Aplicar
+              </Button>
+              <Button type="button" variant="outline" className="rounded-full border-bloom-aubergine/20" onClick={clearFilters}>
+                Limpar
+              </Button>
+            </div>
+          </div>
+        </div>
+      </FadeIn>
+
       <FadeIn delay={0.05}>
         <div className="rounded-2xl border border-bloom-aubergine/10 bg-white/90 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full font-ui text-sm">
               <thead>
-                <tr className="bg-bloom-cream-deep/80 text-bloom-aubergine/70 text-left text-[11px] uppercase tracking-wide">
+                <tr className="bg-bloom-plum/15 border-b border-bloom-aubergine/10 text-bloom-aubergine/75 text-left text-[11px] uppercase tracking-wide">
                   <th className="px-4 py-3">Nome</th>
                   <th className="px-4 py-3 hidden lg:table-cell">Domínios</th>
                   <th className="px-4 py-3">Ativa</th>

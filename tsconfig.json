@@ -2,7 +2,10 @@
   "compilerOptions": {
     "allowJs": true,
     "noImplicitAny": false,
-    "paths": { "@/*": ["./src/*"] },
+    "paths": {
+      "@/*": ["./src/*"],
+      "@bloom-at-work/*": ["../bloom-at-work/src/*"]
+    },
     "skipLibCheck": true
   },
   "files": [],

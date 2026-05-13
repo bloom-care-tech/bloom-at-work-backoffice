@@ -1,4 +1,5 @@
-import { readPersistedAuth } from "./session-storage";
+import type { RefreshBody } from "./types";
+import { readPersistedAuth, writePersistedAuth, updatePersistedTokens } from "./session-storage";
 
 export function getApiBaseUrl(): string {
   const raw = import.meta.env.VITE_API_URL as string | undefined;
@@ -23,21 +24,73 @@ export class ApiError extends Error {
   }
 }
 
-function parseErrorMessage(body: unknown): string {
-  if (!body || typeof body !== "object") return "Erro ao comunicar com o servidor.";
+function parseErrorMessage(body: unknown, status: number): string {
+  if (typeof body === "string") {
+    const t = body.trim();
+    if (t.startsWith("<") || /<!DOCTYPE/i.test(t)) {
+      return `Resposta inválida do servidor (HTTP ${status}). Verifique se a API está em execução e se a URL base está correta (VITE_API_URL / proxy).`;
+    }
+    return t.length > 280 ? `${t.slice(0, 280)}…` : t;
+  }
+  if (!body || typeof body !== "object") {
+    return status ? `Erro HTTP ${status}.` : "Erro ao comunicar com o servidor.";
+  }
   const rec = body as Record<string, unknown>;
   const msg = rec.message;
   if (typeof msg === "string") return msg;
-  if (Array.isArray(msg) && msg.length > 0 && typeof msg[0] === "string") return msg[0];
-  return "Erro ao comunicar com o servidor.";
+  if (Array.isArray(msg) && msg.length > 0) {
+    const first = msg[0];
+    if (typeof first === "string") return first;
+    if (first && typeof first === "object") {
+      const o = first as Record<string, unknown>;
+      if (typeof o.message === "string") return o.message;
+      if (o.constraints && typeof o.constraints === "object") {
+        const vals = Object.values(o.constraints as Record<string, string>);
+        if (vals[0]) return String(vals[0]);
+      }
+    }
+  }
+  if (typeof rec.error === "string" && rec.error.length > 0) return rec.error;
+  return status ? `Erro HTTP ${status}.` : "Erro ao comunicar com o servidor.";
+}
+
+let refreshInFlight: Promise<boolean> | null = null;
+
+async function postRefresh(refreshToken: string): Promise<RefreshBody | null> {
+  const res = await fetch(joinUrl("/auth/refresh"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refreshToken }),
+  });
+  if (!res.ok) return null;
+  return (await res.json()) as RefreshBody;
+}
+
+async function tryRefresh(): Promise<boolean> {
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = (async () => {
+    const p = readPersistedAuth();
+    if (!p?.refreshToken) return false;
+    const next = await postRefresh(p.refreshToken);
+    if (!next) {
+      writePersistedAuth(null);
+      return false;
+    }
+    updatePersistedTokens(next.accessToken, next.refreshToken);
+    return true;
+  })().finally(() => {
+    refreshInFlight = null;
+  });
+  return refreshInFlight;
 }
 
 export type ApiFetchOptions = RequestInit & {
   auth?: boolean;
+  skipRefresh?: boolean;
 };
 
 export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
-  const { auth = false, headers: hdrs, ...rest } = options;
+  const { auth = false, skipRefresh = false, headers: hdrs, ...rest } = options;
   const headers = new Headers(hdrs);
   if (rest.body !== undefined && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
@@ -50,7 +103,20 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
   }
 
   const url = joinUrl(path);
-  const res = await fetch(url, { ...rest, headers });
+  let res = await fetch(url, { ...rest, headers });
+
+  if (res.status === 401 && auth && !skipRefresh) {
+    const ok = await tryRefresh();
+    if (ok) {
+      const p2 = readPersistedAuth();
+      const h2 = new Headers(hdrs);
+      if (rest.body !== undefined && !h2.has("Content-Type")) {
+        h2.set("Content-Type", "application/json");
+      }
+      if (p2?.accessToken) h2.set("Authorization", `Bearer ${p2.accessToken}`);
+      res = await fetch(url, { ...rest, headers: h2 });
+    }
+  }
 
   const text = await res.text();
   let json: unknown = undefined;
@@ -63,7 +129,7 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
   }
 
   if (!res.ok) {
-    throw new ApiError(parseErrorMessage(json), res.status, json);
+    throw new ApiError(parseErrorMessage(json, res.status), res.status, json);
   }
 
   return json as T;
@@ -87,7 +153,17 @@ export async function apiFetchBlob(
   }
 
   const url = joinUrl(path);
-  const res = await fetch(url, { ...rest, headers });
+  let res = await fetch(url, { ...rest, headers });
+
+  if (res.status === 401 && auth) {
+    const ok = await tryRefresh();
+    if (ok) {
+      const h2 = new Headers(hdrs);
+      const p2 = readPersistedAuth();
+      if (p2?.accessToken) h2.set("Authorization", `Bearer ${p2.accessToken}`);
+      res = await fetch(url, { ...rest, headers: h2 });
+    }
+  }
 
   if (!res.ok) {
     const text = await res.text();
@@ -97,7 +173,7 @@ export async function apiFetchBlob(
     } catch {
       /* keep text */
     }
-    throw new ApiError(parseErrorMessage(json), res.status, json);
+    throw new ApiError(parseErrorMessage(json, res.status), res.status, json);
   }
 
   const blob = await res.blob();
