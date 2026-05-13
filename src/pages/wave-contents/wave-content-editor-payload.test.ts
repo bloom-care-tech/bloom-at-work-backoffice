@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   extractArticleEditorHtml,
   payloadRecordFromUnknown,
+  scientificRefsExtrasFromPayload,
   toolkitExtrasFromPayload,
   toolkitItensFromPayload,
   toolkitSectionTituloFromPayload,
@@ -44,6 +45,18 @@ describe("extractArticleEditorHtml", () => {
     expect(html).toContain("Line one.");
     expect(html).toContain("<ol>");
     expect(html).toContain("<li>");
+  });
+});
+
+describe("scientificRefsExtrasFromPayload", () => {
+  it("strips referencias and description keys", () => {
+    const p = {
+      referencias: [{ titulo: "T", autores: "A", fonte: "F", doi: "x" }],
+      description: "Intro",
+      descricao: "ignored when both",
+      extra: 1,
+    };
+    expect(scientificRefsExtrasFromPayload(p)).toEqual({ extra: 1 });
   });
 });
 

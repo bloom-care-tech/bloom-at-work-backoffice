@@ -25,8 +25,8 @@ import {
   payloadRecordFromUnknown,
   mediaExtrasFromPayload,
   mediaUrlKeyForKind,
-  omitKeys,
   refsFromPayload,
+  scientificRefsExtrasFromPayload,
   toolkitExtrasFromPayload,
   toolkitItensFromPayload,
   toolkitSectionTituloFromPayload,
@@ -46,6 +46,7 @@ function buildPayload(
     mediaDescription: string;
     mediaExtras: Record<string, unknown>;
     refRows: RefFormRow[];
+    scientificRefsDescription: string;
     refExtras: Record<string, unknown>;
     contentTitle: string;
     toolkitSectionTitulo: string;
@@ -71,7 +72,12 @@ function buildPayload(
       return { ...ctx.mediaExtras, pdfUrl: ctx.mediaUrl.trim(), ...(d ? { description: d } : {}) };
     }
     case "scientificReferences": {
-      return { ...ctx.refExtras, referencias: buildReferenciasForApi(ctx.refRows) };
+      const d = ctx.scientificRefsDescription.trim();
+      return {
+        ...ctx.refExtras,
+        referencias: buildReferenciasForApi(ctx.refRows),
+        ...(d ? { description: d } : {}),
+      };
     }
     case "toolkit": {
       const titulo = ctx.contentTitle.trim();
@@ -117,6 +123,7 @@ export function WaveContentEditorPage() {
   const [mediaExtras, setMediaExtras] = useState<Record<string, unknown>>({});
 
   const [refRows, setRefRows] = useState<RefFormRow[]>([emptyRefRow()]);
+  const [scientificRefsDescription, setScientificRefsDescription] = useState("");
   const [refExtras, setRefExtras] = useState<Record<string, unknown>>({});
 
   const [toolkitSectionTitulo, setToolkitSectionTitulo] = useState("");
@@ -154,6 +161,7 @@ export function WaveContentEditorPage() {
     }
     if (kind === "scientificReferences") {
       setRefRows([emptyRefRow()]);
+      setScientificRefsDescription("");
       setRefExtras({});
     }
     if (kind === "toolkit") {
@@ -185,7 +193,8 @@ export function WaveContentEditorPage() {
       setMediaExtras(mediaExtrasFromPayload(p, k));
     } else if (k === "scientificReferences") {
       setRefRows(refsFromPayload(p));
-      setRefExtras(omitKeys(p, ["referencias"]));
+      setScientificRefsDescription(mediaDescriptionFromPayload(p));
+      setRefExtras(scientificRefsExtrasFromPayload(p));
     } else if (k === "toolkit") {
       setToolkitSectionTitulo(toolkitSectionTituloFromPayload(p));
       setToolkitItens(toolkitItensFromPayload(p));
@@ -203,6 +212,7 @@ export function WaveContentEditorPage() {
         mediaDescription,
         mediaExtras,
         refRows,
+        scientificRefsDescription,
         refExtras,
         contentTitle: title.trim(),
         toolkitSectionTitulo,
@@ -226,6 +236,7 @@ export function WaveContentEditorPage() {
     mediaDescription,
     mediaExtras,
     refRows,
+    scientificRefsDescription,
     refExtras,
     title,
     toolkitSectionTitulo,
@@ -245,6 +256,7 @@ export function WaveContentEditorPage() {
           mediaDescription,
           mediaExtras,
           refRows,
+          scientificRefsDescription,
           refExtras,
           contentTitle: title.trim(),
           toolkitSectionTitulo,
@@ -459,6 +471,19 @@ export function WaveContentEditorPage() {
 
             {kind === "scientificReferences" && (
               <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label className="font-ui text-bloom-aubergine/80">Descrição</Label>
+                  <textarea
+                    className={`${inputCls} min-h-[88px] resize-y`}
+                    value={scientificRefsDescription}
+                    onChange={(e) => setScientificRefsDescription(e.target.value)}
+                    placeholder="Optional intro shown under the title (payload.description, same level as referencias)."
+                    rows={3}
+                  />
+                  <p className="font-ui text-xs text-bloom-aubergine/55">
+                    Stored as <code className="text-[11px]">description</code> on the payload root (not inside each reference object).
+                  </p>
+                </div>
                 <Label className="font-ui text-bloom-aubergine/80">Referências</Label>
                 <p className="font-ui text-xs text-bloom-aubergine/55">
                   Cada linha com título, autores, fonte e DOI obrigatórios; número opcional (padrão: ordem na lista).

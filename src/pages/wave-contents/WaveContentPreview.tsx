@@ -77,10 +77,11 @@ function shouldShowDialogDescription(kind: WaveContentKindApi, payload: Record<s
   if (!payload) return false;
   const desc = payloadDescription(payload).trim();
   if (!desc) return false;
+  if (kind === "scientificReferences") return true;
   if (kind === "audio") {
     return hasTrilhaStyleDialogDescription(payload);
   }
-  if (kind === "video" || kind === "pdf" || kind === "toolkit" || kind === "scientificReferences") {
+  if (kind === "video" || kind === "pdf" || kind === "toolkit") {
     return false;
   }
   if (kind === "article") {
