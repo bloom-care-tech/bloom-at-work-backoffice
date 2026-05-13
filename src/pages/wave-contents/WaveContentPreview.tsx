@@ -57,11 +57,30 @@ function kindMetaIcon(kind: WaveContentKindApi) {
   }
 }
 
+/** Mirrors `Trilha` content dialog: description in header only for plain media payloads (no article body, lists, etc.). */
+function hasTrilhaStyleDialogDescription(payload: Record<string, unknown>): boolean {
+  const desc = payloadDescription(payload).trim();
+  if (!desc) return false;
+
+  const bodyHtml = typeof payload.bodyHtml === "string" ? payload.bodyHtml.trim() : "";
+  if (bodyHtml) return false;
+
+  if (Array.isArray(payload.secoesArtigo) && payload.secoesArtigo.length > 0) return false;
+  if (Array.isArray(payload.checklistSecoes) && payload.checklistSecoes.length > 0) return false;
+  if (Array.isArray(payload.perguntas) && payload.perguntas.length > 0) return false;
+  if (Array.isArray(payload.referencias) && payload.referencias.length > 0) return false;
+
+  return true;
+}
+
 function shouldShowDialogDescription(kind: WaveContentKindApi, payload: Record<string, unknown> | null): boolean {
   if (!payload) return false;
   const desc = payloadDescription(payload).trim();
   if (!desc) return false;
-  if (kind === "video" || kind === "audio" || kind === "pdf" || kind === "toolkit" || kind === "scientificReferences") {
+  if (kind === "audio") {
+    return hasTrilhaStyleDialogDescription(payload);
+  }
+  if (kind === "video" || kind === "pdf" || kind === "toolkit" || kind === "scientificReferences") {
     return false;
   }
   if (kind === "article") {
@@ -247,8 +266,8 @@ export function WaveContentPreviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto border border-bloom-aubergine/15 bg-bloom-cream sm:max-w-2xl gap-0 p-6 md:p-8">
-        <DialogHeader className="pr-10">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto border border-bloom-aubergine/15 bg-bloom-cream p-6">
+        <DialogHeader className="pr-8">
           <div className="flex items-center gap-2 mb-1">
             <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-bloom-cream-deep shrink-0">
               <Icon size={14} weight="duotone" className="text-bloom-aubergine" />
@@ -269,7 +288,7 @@ export function WaveContentPreviewDialog({
             </DialogDescription>
           )}
         </DialogHeader>
-        <div className="mt-4">
+        <div className="mt-2">
           <PreviewBody kind={kind} title={title} payload={payload} error={error} />
         </div>
       </DialogContent>
