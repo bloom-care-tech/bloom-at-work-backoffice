@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMatch, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FadeIn, Eyebrow, PillButton } from "@/components/bloom/primitives";
@@ -6,9 +6,17 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { ApiError } from "@/lib/auth/api-client";
-import { createCompany, fetchCompany, updateCompany, fetchCompanyHubLinks, putCompanyHubLinks } from "@/lib/admin-api";
+import {
+  createCompany,
+  fetchCompany,
+  updateCompany,
+  fetchCompanyHubLinks,
+  putCompanyHubLinks,
+  uploadEditorialMediaAsset,
+} from "@/lib/admin-api";
 
 const inputCls =
   "w-full bg-bloom-cream-deep border border-bloom-aubergine/10 rounded-xl px-4 py-3 font-ui text-sm text-bloom-aubergine placeholder:text-bloom-aubergine/40 focus:outline-none focus:border-bloom-garnet transition-colors duration-260 ease-bloom";
@@ -29,6 +37,8 @@ export function CompanyEditorPage() {
   const [name, setName] = useState("");
   const [domains, setDomains] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
+  const [logoUploading, setLogoUploading] = useState(false);
+  const logoFileInputRef = useRef<HTMLInputElement>(null);
   const [active, setActive] = useState(true);
 
   useEffect(() => {
@@ -127,6 +137,22 @@ export function CompanyEditorPage() {
     onError: (e) => toast(e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Erro ao salvar."),
   });
 
+  async function onCompanyLogoFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setLogoUploading(true);
+    try {
+      const { url } = await uploadEditorialMediaAsset(file, { context: "company", kind: "image" });
+      setLogoUrl(url);
+      toast("Ficheiro enviado. O endereço foi preenchido automaticamente.");
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Falha ao enviar o ficheiro.");
+    } finally {
+      setLogoUploading(false);
+    }
+  }
+
   if (!isNew && !companyId) {
     return null;
   }
@@ -168,8 +194,46 @@ export function CompanyEditorPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label className="font-ui text-bloom-aubergine/80">URL do logotipo (opcional)</Label>
-              <Input className={inputCls} value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} />
+              <Label className="font-ui text-bloom-aubergine/80">Logotipo (opcional)</Label>
+              <Input
+                className={inputCls}
+                value={logoUrl}
+                onChange={(e) => setLogoUrl(e.target.value)}
+                placeholder="https://… (URL externa) ou use o envio abaixo"
+                disabled={logoUploading}
+              />
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <input
+                  ref={logoFileInputRef}
+                  type="file"
+                  className="sr-only"
+                  accept="image/png,image/jpeg,image/webp,image/gif,.png,.jpg,.jpeg,.webp,.gif"
+                  aria-hidden
+                  tabIndex={-1}
+                  onChange={onCompanyLogoFileSelected}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="rounded-full"
+                  disabled={save.isPending || logoUploading}
+                  onClick={() => logoFileInputRef.current?.click()}
+                >
+                  {logoUploading ? "A enviar…" : "Enviar ficheiro"}
+                </Button>
+                <p className="font-ui text-xs text-bloom-aubergine/55">
+                  Após o envio, o campo acima é preenchido com o endereço público da imagem (PNG, JPEG, WebP ou GIF).
+                </p>
+              </div>
+              {logoUrl.trim() ? (
+                <div className="pt-2 flex items-center gap-3">
+                  <img
+                    src={logoUrl.trim()}
+                    alt=""
+                    className="max-h-16 max-w-[200px] object-contain rounded-md border border-bloom-aubergine/10 bg-bloom-cream-deep/40 p-2"
+                  />
+                </div>
+              ) : null}
             </div>
             <div className="flex items-center gap-3">
               <Label htmlFor="company-active" className="font-ui text-sm text-bloom-aubergine cursor-pointer">

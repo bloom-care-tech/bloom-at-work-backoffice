@@ -332,11 +332,11 @@ export async function reorderWaveContents(waveId: string, ids: string[]) {
   });
 }
 
-export type EditorialMediaUploadContext = "wave" | "document_map" | "skills";
+export type EditorialMediaUploadContext = "wave" | "document_map" | "skills" | "company";
 
 export async function uploadEditorialMediaAsset(
   file: File,
-  options: { context: EditorialMediaUploadContext; kind: "audio" | "pdf" },
+  options: { context: EditorialMediaUploadContext; kind: "audio" | "pdf" | "image" },
 ) {
   const form = new FormData();
   form.append("file", file);
