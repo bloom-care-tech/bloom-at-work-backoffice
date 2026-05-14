@@ -9,6 +9,7 @@ import { toast } from "@/components/ui/sonner";
 import { ApiError } from "@/lib/auth/api-client";
 import { useAdminCompaniesForSelect } from "@/hooks/use-admin-companies-select";
 import { createQuote, fetchQuote, updateQuote } from "@/lib/admin-api";
+import { isoYmdToPtBrInput, ptBrInputToIsoYmd } from "@bloom-at-work/lib/format-date";
 
 const inputCls =
   "w-full bg-bloom-cream-deep border border-bloom-aubergine/10 rounded-xl px-4 py-3 font-ui text-sm text-bloom-aubergine placeholder:text-bloom-aubergine/40 focus:outline-none focus:border-bloom-garnet transition-colors duration-260 ease-bloom";
@@ -30,14 +31,15 @@ export function QuoteEditorPage() {
 
   const [text, setText] = useState("");
   const [author, setAuthor] = useState("");
-  const [publicationDate, setPublicationDate] = useState("");
+  const [pubDateDisplay, setPubDateDisplay] = useState("");
   const [companyId, setCompanyId] = useState("");
   const [audience, setAudience] = useState("all");
   const [active, setActive] = useState(true);
 
   useEffect(() => {
     if (isNew) {
-      setPublicationDate(new Date().toISOString().slice(0, 10));
+      const y = new Date().toISOString().slice(0, 10);
+      setPubDateDisplay(isoYmdToPtBrInput(y));
     }
   }, [isNew]);
 
@@ -45,7 +47,7 @@ export function QuoteEditorPage() {
     if (!data) return;
     setText(data.text);
     setAuthor(data.author);
-    setPublicationDate(data.publicationDate);
+    setPubDateDisplay(isoYmdToPtBrInput(data.publicationDate));
     setCompanyId(data.companyId ?? "");
     setAudience(data.audience);
     setActive(data.active);
@@ -53,15 +55,16 @@ export function QuoteEditorPage() {
 
   const save = useMutation({
     mutationFn: async () => {
-      if (!text.trim() || !author.trim() || !publicationDate) {
-        throw new Error("Preencha texto, autor e data.");
+      const pubIso = ptBrInputToIsoYmd(pubDateDisplay.trim());
+      if (!text.trim() || !author.trim() || !pubIso) {
+        throw new Error("Preencha texto, autor e data (dd/mm/aaaa).");
       }
       if (text.length > 280) throw new Error("O texto pode ter no máximo 280 caracteres.");
       if (id) {
         await updateQuote(id, {
           text: text.trim(),
           author: author.trim(),
-          publicationDate,
+          publicationDate: pubIso,
           audience,
           active,
           companyId: companyId ? companyId : null,
@@ -70,7 +73,7 @@ export function QuoteEditorPage() {
         await createQuote({
           text: text.trim(),
           author: author.trim(),
-          publicationDate,
+          publicationDate: pubIso,
           audience,
           active,
           ...(companyId ? { companyId } : {}),
@@ -100,6 +103,7 @@ export function QuoteEditorPage() {
       {(isNew || data) && (
         <FadeIn delay={0.05}>
           <form
+            noValidate
             className="space-y-5 bg-white/90 border border-bloom-aubergine/10 rounded-2xl p-6 md:p-8"
             onSubmit={(e) => {
               e.preventDefault();
@@ -113,16 +117,24 @@ export function QuoteEditorPage() {
                 value={text}
                 maxLength={280}
                 onChange={(e) => setText(e.target.value)}
-                required
               />
             </div>
             <div className="space-y-2">
               <Label className="font-ui text-bloom-aubergine/80">Autor ou fonte</Label>
-              <input className={inputCls} value={author} onChange={(e) => setAuthor(e.target.value)} required />
+              <input className={inputCls} value={author} onChange={(e) => setAuthor(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label className="font-ui text-bloom-aubergine/80">Data de publicação</Label>
-              <input className={inputCls} type="date" value={publicationDate} onChange={(e) => setPublicationDate(e.target.value)} required />
+              <input
+                className={inputCls}
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="dd/mm/aaaa"
+                value={pubDateDisplay}
+                onChange={(e) => {
+                  setPubDateDisplay(e.target.value);
+                }}
+              />
             </div>
             <div className="space-y-2">
               <Label className="font-ui text-bloom-aubergine/80">Empresa (opcional — vazio = todas)</Label>

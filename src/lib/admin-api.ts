@@ -1,4 +1,5 @@
 import { apiFetch, apiFetchBlob } from "./auth/api-client";
+import type { BulkQuoteImportPayload } from "./quote-bulk-import.types";
 
 export interface Paginated<T> {
   items: T[];
@@ -24,14 +25,13 @@ export interface UserListItemDto {
   displayName: string | null;
   role: string | null;
   status: string | null;
-  isAdmin: boolean;
   companyId: string | null;
   companyName: string | null;
   firstAccessCompleted: boolean;
   createdAt: string;
 }
 
-export interface InviteListItemDto {
+export interface SignupAccessListItemDto {
   id: string;
   companyId: string;
   companyName: string;
@@ -39,6 +39,8 @@ export interface InviteListItemDto {
   expiresAt: string | null;
   revokedAt: string | null;
   createdAt: string;
+  /** True when the API can rebuild the signup URL (encrypted token on file). */
+  accessLinkAvailable: boolean;
 }
 
 export interface QuoteDto {
@@ -98,11 +100,26 @@ export async function fetchUsersPage(
   limit = 20,
   companyId?: string,
   search?: string,
-  filters?: { status?: string; role?: string; createdFrom?: string; createdTo?: string },
+  filters?: {
+    status?: string;
+    role?: string;
+    createdFrom?: string;
+    createdTo?: string;
+    userScope?: "company" | "platform";
+  },
 ) {
   return apiFetch<Paginated<UserListItemDto>>(`/admin/usuarios${q({ page, limit, companyId, search, ...filters })}`, {
     auth: true,
   });
+}
+
+export async function createPlatformAdminUser(body: {
+  email: string;
+  password: string;
+  name?: string | null;
+  displayName?: string | null;
+}) {
+  return apiFetch<{ id: string }>(`/admin/usuarios`, { method: "POST", auth: true, body: JSON.stringify(body) });
 }
 
 export async function fetchUser(id: string) {
@@ -111,31 +128,35 @@ export async function fetchUser(id: string) {
 
 export async function updateUser(
   id: string,
-  body: Partial<{ name: string | null; displayName: string | null; role: string; status: string; isAdmin: boolean }>,
+  body: Partial<{ name: string | null; displayName: string | null; role: string; status: string }>,
 ) {
   return apiFetch<{ ok: true }>(`/admin/usuarios/${id}`, { method: "PATCH", auth: true, body: JSON.stringify(body) });
 }
 
-export async function fetchInvitesPage(
+export async function fetchSignupAccessPage(
   page: number,
   limit = 20,
   companyId?: string,
   status?: "active" | "revoked",
 ) {
-  return apiFetch<Paginated<InviteListItemDto>>(`/admin/convites-cadastro${q({ page, limit, companyId, status })}`, {
+  return apiFetch<Paginated<SignupAccessListItemDto>>(`/admin/links-acesso${q({ page, limit, companyId, status })}`, {
     auth: true,
   });
 }
 
-export async function createInvite(body: { companyId: string; role: string; expiresAt?: string }) {
-  return apiFetch<{ id: string; inviteUrl: string; companyName: string; role: string; expiresAt: string | null }>(
-    `/admin/convites-cadastro`,
+export async function createSignupAccess(body: { companyId: string; role: string; expiresAt?: string }) {
+  return apiFetch<{ id: string; accessUrl: string; companyName: string; role: string; expiresAt: string | null }>(
+    `/admin/links-acesso`,
     { method: "POST", auth: true, body: JSON.stringify(body) },
   );
 }
 
-export async function revokeInvite(id: string) {
-  return apiFetch<{ ok: true }>(`/admin/convites-cadastro/${id}/revoke`, { method: "POST", auth: true });
+export async function revokeSignupAccess(id: string) {
+  return apiFetch<{ ok: true }>(`/admin/links-acesso/${id}/revoke`, { method: "POST", auth: true });
+}
+
+export async function fetchSignupAccessLink(id: string) {
+  return apiFetch<{ accessUrl: string }>(`/admin/links-acesso/${id}/access-link`, { auth: true });
 }
 
 export async function fetchQuotesPage(
@@ -179,7 +200,7 @@ export async function deleteQuote(id: string) {
   return apiFetch<{ message: string }>(`/admin/quotes/${id}`, { method: "DELETE", auth: true });
 }
 
-export async function bulkCreateQuotes(quotes: unknown[]) {
+export async function bulkCreateQuotes(quotes: BulkQuoteImportPayload[]) {
   return apiFetch<{ created: number; skipped: number; errors: { index: number; code: string; message: string }[] }>(
     `/admin/quotes/bulk`,
     { method: "POST", auth: true, body: JSON.stringify({ quotes }) },
@@ -198,6 +219,7 @@ export interface WaveDto {
   title: string;
   subtitle: string;
   active: boolean;
+  audience: "colaborador" | "lider";
   createdAt: string;
   updatedAt: string;
   contentCount: number;
@@ -217,13 +239,21 @@ export async function createWave(body: {
   subtitle: string;
   sortOrder?: number;
   active?: boolean;
+  audience?: "colaborador" | "lider";
 }) {
   return apiFetch<{ id: string }>("/admin/ondas", { method: "POST", auth: true, body: JSON.stringify(body) });
 }
 
 export async function updateWave(
   id: string,
-  body: Partial<{ slug: string; title: string; subtitle: string; sortOrder: number; active: boolean }>,
+  body: Partial<{
+    slug: string;
+    title: string;
+    subtitle: string;
+    sortOrder: number;
+    active: boolean;
+    audience: "colaborador" | "lider";
+  }>,
 ) {
   return apiFetch<{ ok: true }>(`/admin/ondas/${id}`, { method: "PATCH", auth: true, body: JSON.stringify(body) });
 }
@@ -243,7 +273,8 @@ export async function reorderWaves(ids: string[]) {
 export interface DashboardSummaryDto {
   companies: number;
   users: number;
-  invitesActive: number;
+  platformAdmins: number;
+  signupAccessActive: number;
   quotes: number;
   waves: number;
   waveContents: number;
@@ -260,6 +291,7 @@ export async function fetchDashboardSummary() {
 export interface WaveContentDto {
   id: string;
   waveId: string;
+  moduleId: string;
   sortOrder: number;
   kind: string;
   /** Absent on stale clients; coerce with `Boolean(...)`. */
@@ -272,20 +304,70 @@ export interface WaveContentDto {
   updatedAt: string;
 }
 
+export interface WaveModuleDto {
+  id: string;
+  waveId: string;
+  slug: string;
+  title: string;
+  sortOrder: number;
+  contentCount: number;
+}
+
+export async function fetchWaveModules(waveId: string) {
+  return apiFetch<WaveModuleDto[]>(`/admin/ondas/${waveId}/modulos`, { auth: true });
+}
+
+export async function createWaveModule(
+  waveId: string,
+  body: { title: string; sortOrder?: number; slug?: string },
+) {
+  return apiFetch<{ id: string }>(`/admin/ondas/${waveId}/modulos`, {
+    method: "POST",
+    auth: true,
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateWaveModule(
+  waveId: string,
+  moduleId: string,
+  body: Partial<{ title: string; sortOrder: number; slug: string }>,
+) {
+  return apiFetch<{ ok: true }>(`/admin/ondas/${waveId}/modulos/${moduleId}`, {
+    method: "PATCH",
+    auth: true,
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deleteWaveModule(waveId: string, moduleId: string) {
+  return apiFetch<{ ok: true }>(`/admin/ondas/${waveId}/modulos/${moduleId}`, { method: "DELETE", auth: true });
+}
+
+export async function reorderWaveModules(waveId: string, ids: string[]) {
+  return apiFetch<{ ok: true }>(`/admin/ondas/${waveId}/modulos/reorder`, {
+    method: "PATCH",
+    auth: true,
+    body: JSON.stringify({ ids }),
+  });
+}
+
 export async function fetchWaveContentsPage(
   waveId: string,
+  moduleId: string,
   page = 1,
   limit = 50,
   filters?: { published?: boolean; kind?: string; search?: string },
 ) {
   return apiFetch<{ items: WaveContentDto[]; page: number; limit: number; total: number }>(
-    `/admin/ondas/${waveId}/conteudos${q({ page, limit, ...filters })}`,
+    `/admin/ondas/${waveId}/modulos/${moduleId}/conteudos${q({ page, limit, ...filters })}`,
     { auth: true },
   );
 }
 
 export async function createWaveContent(
   waveId: string,
+  moduleId: string,
   body: {
     kind: string;
     title: string;
@@ -295,7 +377,7 @@ export async function createWaveContent(
     publishedAt?: string | null;
   },
 ) {
-  return apiFetch<{ id: string }>(`/admin/ondas/${waveId}/conteudos`, {
+  return apiFetch<{ id: string }>(`/admin/ondas/${waveId}/modulos/${moduleId}/conteudos`, {
     method: "POST",
     auth: true,
     body: JSON.stringify(body),
@@ -324,8 +406,8 @@ export async function deleteWaveContent(id: string) {
   return apiFetch<{ ok: true }>(`/admin/conteudos/${id}`, { method: "DELETE", auth: true });
 }
 
-export async function reorderWaveContents(waveId: string, ids: string[]) {
-  return apiFetch<{ ok: true }>(`/admin/ondas/${waveId}/conteudos/reorder`, {
+export async function reorderWaveContents(waveId: string, moduleId: string, ids: string[]) {
+  return apiFetch<{ ok: true }>(`/admin/ondas/${waveId}/modulos/${moduleId}/conteudos/reorder`, {
     method: "PATCH",
     auth: true,
     body: JSON.stringify({ ids }),
@@ -601,35 +683,124 @@ export async function deleteDocument(id: string) {
   return apiFetch<{ ok: true }>(`/admin/documentos/${id}`, { method: "DELETE", auth: true });
 }
 
-export async function fetchContentRanking(period: "week" | "month", from?: string, to?: string, companyId?: string) {
+/** Hub role filter for aggregated metrics (`Interaction.roleSnapshot`). */
+export type MetricsHubRoleFilter = "lider" | "colaborador";
+
+export async function fetchContentRanking(
+  period: "week" | "month",
+  from?: string,
+  to?: string,
+  companyId?: string,
+  role?: MetricsHubRoleFilter,
+) {
   return apiFetch<{
     period: string;
     from: string;
     to: string;
     suppressionMinCount: number;
-    rows: { contentType: string; contentId: string; count: number }[];
-  }>(`/admin/metricas/content-ranking${q({ period, from, to, companyId })}`, { auth: true });
+    rows: { contentType: string; contentId: string; contentTitle: string; count: number }[];
+  }>(`/admin/metricas/content-ranking${q({ period, from, to, companyId, role })}`, { auth: true });
 }
 
-export async function fetchEngagementMetrics(from?: string, to?: string, companyId?: string) {
+export async function fetchEngagementMetrics(
+  from?: string,
+  to?: string,
+  companyId?: string,
+  role?: MetricsHubRoleFilter,
+) {
   return apiFetch<{
     from: string;
     to: string;
     suppressionMinCount: number;
-    wave: { contentId: string; count: number }[];
-    skillItem: { contentId: string; count: number }[];
-    document: { contentId: string; count: number }[];
-  }>(`/admin/metricas/engagement${q({ from, to, companyId })}`, { auth: true });
+    wave: { contentId: string; contentTitle: string; count: number }[];
+    waveModule: { contentId: string; contentTitle: string; count: number }[];
+    skillItem: { contentId: string; contentTitle: string; count: number }[];
+    skill: { contentId: string; contentTitle: string; count: number }[];
+    document: { contentId: string; contentTitle: string; count: number }[];
+    documentByCategory: { categoryId: string; categoryName: string; count: number }[];
+    quote: { contentId: string; contentTitle: string; count: number }[];
+  }>(`/admin/metricas/engagement${q({ from, to, companyId, role })}`, { auth: true });
 }
 
-export async function fetchCohortMetrics(from: string, to: string, companyId?: string) {
+export async function fetchCohortMetrics(
+  from: string,
+  to: string,
+  companyId?: string,
+  role?: MetricsHubRoleFilter,
+) {
   return apiFetch<{
     from: string;
     to: string;
     distinctUsersInRange: number;
     weeklyActiveUsersApprox: number;
+    wau7DistinctUsers: number;
+    wau7WindowFrom: string;
+    wau7WindowTo: string;
+    mau30DistinctUsers: number;
+    mau30WindowFrom: string;
+    mau30WindowTo: string;
     dailyActiveUsersByDay: { day: string; users: number }[];
-  }>(`/admin/metricas/cohorts/dau-wau-mau${q({ from, to, companyId })}`, { auth: true });
+  }>(`/admin/metricas/cohorts/dau-wau-mau${q({ from, to, companyId, role })}`, { auth: true });
+}
+
+async function downloadAdminMetricsCsv(path: string, fallbackFilename: string): Promise<void> {
+  const { blob, contentDisposition } = await apiFetchBlob(path, { auth: true });
+  const header = contentDisposition ?? "";
+  const match = /filename\*?=(?:UTF-8''|)([^;\n]+)/i.exec(header) ?? /filename="([^"]+)"/i.exec(header);
+  let name = fallbackFilename;
+  if (match?.[1]) {
+    try {
+      name = decodeURIComponent(match[1].trim().replace(/^"|"$/g, ""));
+    } catch {
+      name = match[1].trim().replace(/^"|"$/g, "") || fallbackFilename;
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name || fallbackFilename;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+export async function downloadContentRankingCsv(
+  period: "week" | "month",
+  from?: string,
+  to?: string,
+  companyId?: string,
+  role?: MetricsHubRoleFilter,
+): Promise<void> {
+  await downloadAdminMetricsCsv(
+    `/admin/metricas/content-ranking/export${q({ period, from, to, companyId, role })}`,
+    `content-ranking-${period}.csv`,
+  );
+}
+
+export async function downloadEngagementMetricsCsv(
+  from?: string,
+  to?: string,
+  companyId?: string,
+  role?: MetricsHubRoleFilter,
+): Promise<void> {
+  await downloadAdminMetricsCsv(
+    `/admin/metricas/engagement/export${q({ from, to, companyId, role })}`,
+    "engagement.csv",
+  );
+}
+
+export async function downloadCohortMetricsCsv(
+  from: string,
+  to: string,
+  companyId?: string,
+  role?: MetricsHubRoleFilter,
+): Promise<void> {
+  await downloadAdminMetricsCsv(
+    `/admin/metricas/cohorts/dau-wau-mau/export${q({ from, to, companyId, role })}`,
+    "cohorts-dau-wau-mau.csv",
+  );
 }
 
 export interface CompanyHubLinksDto {

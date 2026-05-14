@@ -12,7 +12,6 @@ export interface AuthUserJson {
   displayName: string | null;
   role: string;
   status: string;
-  isAdmin: boolean;
   company: AuthCompanyJson;
   firstAccessCompleted: boolean;
 }

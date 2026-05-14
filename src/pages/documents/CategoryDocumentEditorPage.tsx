@@ -122,6 +122,7 @@ export function CategoryDocumentEditorPage() {
       {(isNew || data) && (
         <FadeIn delay={0.05}>
           <form
+            noValidate
             className="space-y-5 bg-white/90 border border-bloom-aubergine/10 rounded-2xl p-6 md:p-8"
             onSubmit={(e) => {
               e.preventDefault();
@@ -132,7 +133,7 @@ export function CategoryDocumentEditorPage() {
               <Label htmlFor="doc-name" className="font-ui text-bloom-aubergine/80">
                 Nome
               </Label>
-              <input id="doc-name" className={inputCls} value={name} onChange={(e) => setName(e.target.value)} required />
+              <input id="doc-name" className={inputCls} value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="doc-desc" className="font-ui text-bloom-aubergine/80">

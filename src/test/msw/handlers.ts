@@ -17,9 +17,8 @@ const testAuthUser = {
   id: "u-admin",
   name: "Admin",
   displayName: "Admin",
-  role: "colaborador",
+  role: "admin",
   status: "ativo",
-  isAdmin: true,
   company: { id: companyRow.id, name: companyRow.name, logoUrl: null as string | null },
   firstAccessCompleted: true,
 };
@@ -34,11 +33,34 @@ export const defaultHandlers = [
     });
   }),
 
-  http.post(`${TEST_API_ORIGIN}/admin/convites-cadastro`, async ({ request }) => {
+  http.get(`${TEST_API_ORIGIN}/admin/quotes`, ({ request }) => {
+    const auth = request.headers.get("authorization");
+    if (auth !== "Bearer jwt-test-access") {
+      return HttpResponse.json({ message: "Não autorizado." }, { status: 401 });
+    }
+    return HttpResponse.json({
+      items: [
+        {
+          id: "33333333-3333-3333-3333-333333333333",
+          text: "Hello quote",
+          author: "Author Name",
+          publicationDate: "2026-05-01",
+          companyId: null,
+          audience: "all",
+          active: true,
+        },
+      ],
+      page: 1,
+      limit: 15,
+      total: 1,
+    });
+  }),
+
+  http.post(`${TEST_API_ORIGIN}/admin/links-acesso`, async ({ request }) => {
     const body = (await request.json()) as { companyId: string; role: string };
     return HttpResponse.json({
       id: "22222222-2222-2222-2222-222222222222",
-      inviteUrl: "https://app.example/join?token=test-invite",
+      accessUrl: "http://localhost:8080/?acesso=test-invite-token-21chars",
       companyName: "Acme Corp",
       role: body.role,
       expiresAt: null,

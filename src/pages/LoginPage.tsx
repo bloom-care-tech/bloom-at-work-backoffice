@@ -4,6 +4,7 @@ import { Eyebrow, FadeIn, PillButton, TrustLine } from "@/components/bloom/primi
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { ApiError } from "@/lib/auth/api-client";
+import { isBloomBackofficeOperator } from "@/lib/auth/backoffice-access";
 import { getMe, login } from "@/lib/auth/auth-api";
 import { writePersistedAuth } from "@/lib/auth/session-storage";
 import { useBackofficeSession } from "@/lib/backoffice-session";
@@ -19,7 +20,7 @@ export function LoginPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (auth?.kind === "backoffice" && auth.me.isAdmin) navigate("/", { replace: true });
+    if (auth?.kind === "backoffice" && isBloomBackofficeOperator(auth.me)) navigate("/", { replace: true });
   }, [auth, navigate]);
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -36,12 +37,12 @@ export function LoginPage() {
     setBusy(true);
     try {
       const res = await login(em, password);
-      if (!res.user.isAdmin) {
+      if (!isBloomBackofficeOperator(res.user)) {
         toast("Sua conta não tem permissão de administrador para este painel.");
         return;
       }
       const me = await getMe(res.accessToken);
-      if (!me.isAdmin) {
+      if (!isBloomBackofficeOperator(me)) {
         toast("Sua conta não tem permissão de administrador para este painel.");
         return;
       }
@@ -72,7 +73,7 @@ export function LoginPage() {
               bloom<span className="italic">@</span>work
             </h1>
             <p className="font-ui text-sm text-bloom-aubergine/65 mt-2">
-              Entre com o mesmo e-mail e senha do hub. Apenas contas com perfil administrador podem acessar.
+              Entre com o mesmo e-mail e senha do hub. Apenas contas com perfil Bloom (admin da plataforma) podem acessar.
             </p>
           </div>
 

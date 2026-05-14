@@ -1,16 +1,32 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { PencilSimple } from "@phosphor-icons/react";
+import { PencilSimple, Plus } from "@phosphor-icons/react";
 import { FadeIn, Eyebrow } from "@/components/bloom/primitives";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toast } from "@/components/ui/sonner";
 import { useAdminCompaniesForSelect } from "@/hooks/use-admin-companies-select";
+import { ApiError } from "@/lib/auth/api-client";
 import { filterSelectCls } from "@/lib/backoffice-filters";
-import { fetchUsersPage } from "@/lib/admin-api";
+import { fetchUsersPage, updateUser } from "@/lib/admin-api";
+import { useBackofficeSession } from "@/lib/backoffice-session";
 
-export function UsersListPage() {
+export type UsersListSection = "company" | "platform";
+
+function userStatusLabel(status: string | null | undefined): string {
+  if (status === "ativo") return "Ativo";
+  if (status === "pausado") return "Inativo";
+  if (status === "desligado") return "Desligado";
+  return "—";
+}
+
+export function UsersListPage({ section }: { section: UsersListSection }) {
+  const isCompany = section === "company";
+  const queryClient = useQueryClient();
+  const { auth } = useBackofficeSession();
+  const selfId = auth?.kind === "backoffice" ? auth.me.id : null;
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [companyId, setCompanyId] = useState("");
@@ -20,9 +36,27 @@ export function UsersListPage() {
   const { data: companiesSelect, isLoading: companiesLoading } = useAdminCompaniesForSelect();
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["users", page, appliedSearch, appliedCompanyId],
+    queryKey: ["users", section, page, appliedSearch, appliedCompanyId],
     queryFn: () =>
-      fetchUsersPage(page, 15, appliedCompanyId || undefined, appliedSearch || undefined),
+      fetchUsersPage(
+        page,
+        15,
+        isCompany ? appliedCompanyId || undefined : undefined,
+        appliedSearch || undefined,
+        { userScope: isCompany ? "company" : "platform" },
+      ),
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: ({ userId, status }: { userId: string; status: string }) => updateUser(userId, { status }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast("Situação atualizada.");
+    },
+    onError: (err) => {
+      const msg = err instanceof ApiError ? err.message : "Não foi possível atualizar.";
+      toast(msg);
+    },
   });
 
   const applyFilters = () => {
@@ -39,12 +73,32 @@ export function UsersListPage() {
     setPage(1);
   };
 
+  const basePath = isCompany ? "/usuarios" : "/administradores";
+
   return (
     <div className="max-w-6xl space-y-6">
       <FadeIn>
-        <Eyebrow tone="garnet">Pessoas</Eyebrow>
-        <h1 className="font-serif-display text-3xl text-bloom-aubergine mt-1">Usuários</h1>
-        <p className="font-ui text-sm text-bloom-aubergine/65 mt-1">Visualize e edite perfis. O e-mail não pode ser alterado aqui.</p>
+        <Eyebrow tone="garnet">{isCompany ? "Empresas" : "Plataforma"}</Eyebrow>
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mt-1">
+          <div>
+            <h1 className="font-serif-display text-3xl text-bloom-aubergine">
+              {isCompany ? "Usuários" : "Administradores Bloom"}
+            </h1>
+            <p className="font-ui text-sm text-bloom-aubergine/65 mt-1">
+              {isCompany
+                ? "Colaboradores e líderes vinculados a empresas. Novos cadastros entram pelos links de acesso."
+                : "Contas com perfil admin da operadora Bloom. O e-mail não pode ser alterado aqui."}
+            </p>
+          </div>
+          {!isCompany && (
+            <Button className="rounded-full bg-bloom-garnet hover:bg-bloom-garnet/90 shrink-0" asChild>
+              <Link to="/administradores/novo">
+                <Plus size={18} className="mr-2 inline" weight="bold" />
+                Adicionar administrador
+              </Link>
+            </Button>
+          )}
+        </div>
       </FadeIn>
       <FadeIn delay={0.05}>
         <div className="rounded-2xl border border-bloom-aubergine/10 bg-white/90 p-4 md:p-5 space-y-3">
@@ -68,25 +122,27 @@ export function UsersListPage() {
                 }}
               />
             </div>
-            <div className="space-y-1 w-full max-w-[14rem]">
-              <Label htmlFor="users-filter-company" className="font-ui text-xs text-bloom-aubergine/70">
-                Empresa
-              </Label>
-              <select
-                id="users-filter-company"
-                className={filterSelectCls}
-                value={companyId}
-                onChange={(e) => setCompanyId(e.target.value)}
-                disabled={companiesLoading}
-              >
-                <option value="">Todas</option>
-                {companiesSelect?.items.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {isCompany && (
+              <div className="space-y-1 w-full max-w-[14rem]">
+                <Label htmlFor="users-filter-company" className="font-ui text-xs text-bloom-aubergine/70">
+                  Empresa
+                </Label>
+                <select
+                  id="users-filter-company"
+                  className={filterSelectCls}
+                  value={companyId}
+                  onChange={(e) => setCompanyId(e.target.value)}
+                  disabled={companiesLoading}
+                >
+                  <option value="">Todas</option>
+                  {companiesSelect?.items.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="flex flex-wrap gap-2">
               <Button type="button" className="rounded-full bg-bloom-garnet hover:bg-bloom-garnet/90" onClick={applyFilters}>
                 Aplicar
@@ -100,29 +156,28 @@ export function UsersListPage() {
       </FadeIn>
       <FadeIn delay={0.08}>
         <div className="rounded-2xl border border-bloom-aubergine/10 bg-white/90 overflow-hidden overflow-x-auto">
-          <table className="w-full font-ui text-sm min-w-[640px]">
+          <table className="w-full font-ui text-sm min-w-[720px]">
             <thead>
               <tr className="bg-bloom-plum/15 border-b border-bloom-aubergine/10 text-bloom-aubergine/75 text-left text-[11px] uppercase tracking-wide">
                 <th className="px-4 py-3">Nome</th>
                 <th className="px-4 py-3">E-mail</th>
-                <th className="px-4 py-3">Empresa</th>
+                {isCompany && <th className="px-4 py-3">Empresa</th>}
                 <th className="px-4 py-3">Papel</th>
                 <th className="px-4 py-3">Situação</th>
-                <th className="px-4 py-3">Admin</th>
-                <th className="px-4 py-3 w-20" />
+                <th className="px-4 py-3 text-right">Ações</th>
               </tr>
             </thead>
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-bloom-aubergine/50">
+                  <td colSpan={isCompany ? 6 : 5} className="px-4 py-8 text-center text-bloom-aubergine/50">
                     Carregando…
                   </td>
                 </tr>
               )}
               {isError && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-bloom-garnet">
+                  <td colSpan={isCompany ? 6 : 5} className="px-4 py-8 text-center text-bloom-garnet">
                     Não foi possível carregar.
                   </td>
                 </tr>
@@ -131,16 +186,61 @@ export function UsersListPage() {
                 <tr key={u.id} className="border-t border-bloom-aubergine/8 hover:bg-bloom-cream/40">
                   <td className="px-4 py-3 text-bloom-aubergine">{u.displayName || u.name || "—"}</td>
                   <td className="px-4 py-3 text-bloom-aubergine/80 max-w-[200px] truncate">{u.email}</td>
-                  <td className="px-4 py-3 text-bloom-aubergine/70">{u.companyName ?? "—"}</td>
-                  <td className="px-4 py-3">{u.role === "lider" ? "Líder" : u.role === "colaborador" ? "Colaborador" : "—"}</td>
-                  <td className="px-4 py-3 capitalize">{u.status ?? "—"}</td>
-                  <td className="px-4 py-3">{u.isAdmin ? "Sim" : "Não"}</td>
+                  {isCompany && <td className="px-4 py-3 text-bloom-aubergine/70">{u.companyName ?? "—"}</td>}
                   <td className="px-4 py-3">
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link to={`/usuarios/${u.id}`}>
-                        <PencilSimple size={16} />
-                      </Link>
-                    </Button>
+                    {u.role === "admin"
+                      ? "Bloom (plataforma)"
+                      : u.role === "lider"
+                        ? "Líder"
+                        : u.role === "colaborador"
+                          ? "Colaborador"
+                          : "—"}
+                  </td>
+                  <td className="px-4 py-3">{userStatusLabel(u.status)}</td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex items-center justify-end gap-1 flex-wrap">
+                      {u.status === "ativo" && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="rounded-full border-bloom-aubergine/25 text-bloom-aubergine/90 text-xs h-8"
+                          disabled={statusMutation.isPending || u.id === selfId}
+                          title={u.id === selfId ? "Use outra conta de administrador para inativar a sua." : undefined}
+                          onClick={() => {
+                            if (
+                              !globalThis.confirm(
+                                "Inativar este usuário? Ele não poderá entrar até ser reativado.",
+                              )
+                            ) {
+                              return;
+                            }
+                            statusMutation.mutate({ userId: u.id, status: "pausado" });
+                          }}
+                        >
+                          Inativar
+                        </Button>
+                      )}
+                      {u.status === "pausado" && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="rounded-full border-bloom-aubergine/25 text-bloom-aubergine/90 text-xs h-8"
+                          disabled={statusMutation.isPending}
+                          onClick={() => {
+                            statusMutation.mutate({ userId: u.id, status: "ativo" });
+                          }}
+                        >
+                          Reativar
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link to={`${basePath}/${u.id}`} aria-label="Editar">
+                          <PencilSimple size={16} />
+                        </Link>
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}

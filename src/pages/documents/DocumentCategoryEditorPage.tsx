@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMatch, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FadeIn, Eyebrow, PillButton } from "@/components/bloom/primitives";
@@ -7,6 +7,11 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { ApiError } from "@/lib/auth/api-client";
 import { createDocumentCategory, fetchDocumentCategory, updateDocumentCategory } from "@/lib/admin-api";
+import {
+  isValidResourceSlug,
+  resourceSlugValidationMessage,
+  slugFromTitle,
+} from "@/lib/slug";
 
 const DEFAULT_ACCENT = "#1C0F29";
 const HEX_ACCENT = /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/;
@@ -39,6 +44,7 @@ export function DocumentCategoryEditorPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [accentColor, setAccentColor] = useState(DEFAULT_ACCENT);
+  const slugManualRef = useRef(false);
 
   useEffect(() => {
     if (!data) return;
@@ -46,12 +52,13 @@ export function DocumentCategoryEditorPage() {
     setName(data.name);
     setDescription(data.description ?? "");
     setAccentColor(data.accentColor?.trim() && HEX_ACCENT.test(data.accentColor.trim()) ? data.accentColor.trim() : DEFAULT_ACCENT);
+    slugManualRef.current = false;
   }, [data]);
 
   const save = useMutation({
     mutationFn: async () => {
-      if (!slug.trim() || !name.trim()) {
-        throw new Error("Preencha slug e nome.");
+      if (!name.trim()) {
+        throw new Error("Preencha o nome.");
       }
       const raw = accentColor.trim();
       const accentOrDefault = HEX_ACCENT.test(raw) ? raw : DEFAULT_ACCENT;
@@ -62,8 +69,12 @@ export function DocumentCategoryEditorPage() {
           accentColor: accentOrDefault,
         });
       } else {
+        const normalizedSlug = slugFromTitle(slug.trim() || name);
+        if (!isValidResourceSlug(normalizedSlug)) {
+          throw new Error(resourceSlugValidationMessage());
+        }
         await createDocumentCategory({
-          slug: slug.trim().toLowerCase(),
+          slug: normalizedSlug,
           name: name.trim(),
           description: description.trim() ? description.trim() : null,
           accentColor: accentOrDefault,
@@ -94,12 +105,30 @@ export function DocumentCategoryEditorPage() {
       {(isNew || data) && (
         <FadeIn delay={0.05}>
           <form
+            noValidate
             className="space-y-5 bg-white/90 border border-bloom-aubergine/10 rounded-2xl p-6 md:p-8"
             onSubmit={(e) => {
               e.preventDefault();
               save.mutate();
             }}
           >
+            <div className="space-y-2">
+              <Label htmlFor="doc-cat-name" className="font-ui text-bloom-aubergine/80">
+                Nome
+              </Label>
+              <input
+                id="doc-cat-name"
+                className={inputCls}
+                value={name}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setName(v);
+                  if (isNew && !slugManualRef.current) {
+                    setSlug(slugFromTitle(v));
+                  }
+                }}
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="doc-cat-slug" className="font-ui text-bloom-aubergine/80">
                 Slug
@@ -108,19 +137,17 @@ export function DocumentCategoryEditorPage() {
                 id="doc-cat-slug"
                 className={inputCls}
                 value={slug}
-                onChange={(e) => setSlug(e.target.value)}
-                required
+                onChange={(e) => {
+                  if (isNew) {
+                    slugManualRef.current = true;
+                    setSlug(slugFromTitle(e.target.value));
+                  }
+                }}
                 disabled={!isNew}
               />
               {!isNew && (
                 <p className="font-ui text-xs text-bloom-aubergine/50">Slug travado após criação; exclua e recrie para trocar.</p>
               )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="doc-cat-name" className="font-ui text-bloom-aubergine/80">
-                Nome
-              </Label>
-              <input id="doc-cat-name" className={inputCls} value={name} onChange={(e) => setName(e.target.value)} required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="doc-cat-desc" className="font-ui text-bloom-aubergine/80">

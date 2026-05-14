@@ -1,17 +1,17 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
-import { Plus, Prohibit } from "@phosphor-icons/react";
+import { Copy, Plus, Prohibit } from "@phosphor-icons/react";
 import { FadeIn, Eyebrow, PillButton } from "@/components/bloom/primitives";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
-import { ApiError } from "@/lib/auth/api-client";
 import { useAdminCompaniesForSelect } from "@/hooks/use-admin-companies-select";
 import { filterSelectCls } from "@/lib/backoffice-filters";
-import { fetchInvitesPage, revokeInvite } from "@/lib/admin-api";
+import { ApiError } from "@/lib/auth/api-client";
+import { fetchSignupAccessLink, fetchSignupAccessPage, revokeSignupAccess } from "@/lib/admin-api";
+import { formatPtBrNumericDate } from "@bloom-at-work/lib/format-date";
 
-export function InvitesListPage() {
+export function AccessLinksListPage() {
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
   const [draftCompanyId, setDraftCompanyId] = useState("");
@@ -22,9 +22,9 @@ export function InvitesListPage() {
   const { data: companiesSelect, isLoading: companiesLoading } = useAdminCompaniesForSelect();
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["invites", page, appliedCompanyId, appliedStatus],
+    queryKey: ["signup-access", page, appliedCompanyId, appliedStatus],
     queryFn: () =>
-      fetchInvitesPage(
+      fetchSignupAccessPage(
         page,
         15,
         appliedCompanyId || undefined,
@@ -33,13 +33,26 @@ export function InvitesListPage() {
   });
 
   const rev = useMutation({
-    mutationFn: revokeInvite,
+    mutationFn: revokeSignupAccess,
     onSuccess: () => {
-      toast("Convite revogado.");
-      void qc.invalidateQueries({ queryKey: ["invites"] });
+      toast("Link de acesso revogado.");
+      void qc.invalidateQueries({ queryKey: ["signup-access"] });
       void qc.invalidateQueries({ queryKey: ["dash"] });
     },
     onError: (e) => toast(e instanceof ApiError ? e.message : "Não foi possível revogar."),
+  });
+
+  const copyAccessLink = useMutation({
+    mutationFn: (id: string) => fetchSignupAccessLink(id),
+    onSuccess: async (res) => {
+      try {
+        await navigator.clipboard.writeText(res.accessUrl);
+        toast("Link de acesso copiado.");
+      } catch {
+        window.prompt("Copie o link (Ctrl+C):", res.accessUrl);
+      }
+    },
+    onError: (e) => toast(e instanceof ApiError ? e.message : "Não foi possível obter o link."),
   });
 
   const applyFilters = () => {
@@ -61,12 +74,12 @@ export function InvitesListPage() {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <FadeIn>
           <Eyebrow tone="garnet">Acesso</Eyebrow>
-          <h1 className="font-serif-display text-3xl text-bloom-aubergine mt-1">Convites</h1>
+          <h1 className="font-serif-display text-3xl text-bloom-aubergine mt-1">Links de acesso</h1>
           <p className="font-ui text-sm text-bloom-aubergine/65 mt-1">Gere links para novos colaboradores entrarem pelo cadastro.</p>
         </FadeIn>
-        <PillButton asLink="/convites/novo" className="self-start">
+        <PillButton asLink="/links-acesso/novo" className="self-start">
           <Plus size={18} weight="bold" />
-          Novo convite
+          Novo link
         </PillButton>
       </div>
 
@@ -75,11 +88,11 @@ export function InvitesListPage() {
           <p className="font-ui text-xs text-bloom-aubergine/60 uppercase tracking-wide">Filtros</p>
           <div className="flex flex-col lg:flex-row flex-wrap gap-4 lg:items-end">
             <div className="space-y-1 w-full max-w-[14rem]">
-              <Label htmlFor="invites-filter-company" className="font-ui text-xs text-bloom-aubergine/70">
+              <Label htmlFor="access-links-filter-company" className="font-ui text-xs text-bloom-aubergine/70">
                 Empresa
               </Label>
               <select
-                id="invites-filter-company"
+                id="access-links-filter-company"
                 className={filterSelectCls}
                 value={draftCompanyId}
                 onChange={(e) => setDraftCompanyId(e.target.value)}
@@ -94,11 +107,11 @@ export function InvitesListPage() {
               </select>
             </div>
             <div className="space-y-1 w-full max-w-[14rem]">
-              <Label htmlFor="invites-filter-status" className="font-ui text-xs text-bloom-aubergine/70">
-                Situação do convite
+              <Label htmlFor="access-links-filter-status" className="font-ui text-xs text-bloom-aubergine/70">
+                Situação do link
               </Label>
               <select
-                id="invites-filter-status"
+                id="access-links-filter-status"
                 className={filterSelectCls}
                 value={draftStatus}
                 onChange={(e) => setDraftStatus(e.target.value as "all" | "active" | "revoked")}
@@ -129,7 +142,7 @@ export function InvitesListPage() {
                 <th className="px-4 py-3">Papel</th>
                 <th className="px-4 py-3">Expira</th>
                 <th className="px-4 py-3">Situação</th>
-                <th className="px-4 py-3 w-28" />
+                <th className="px-4 py-3 text-right min-w-[14rem]">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -152,26 +165,49 @@ export function InvitesListPage() {
                   <td className="px-4 py-3 text-bloom-aubergine">{i.companyName}</td>
                   <td className="px-4 py-3">{i.role === "lider" ? "Líder" : "Colaborador"}</td>
                   <td className="px-4 py-3 text-bloom-aubergine/70">
-                    {i.expiresAt ? new Date(i.expiresAt).toLocaleDateString("pt-BR") : "—"}
+                    {i.expiresAt ? formatPtBrNumericDate(i.expiresAt) : "—"}
                   </td>
                   <td className="px-4 py-3">{i.revokedAt ? "Revogado" : "Ativo"}</td>
                   <td className="px-4 py-3">
-                    {!i.revokedAt && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-bloom-garnet"
-                        disabled={rev.isPending}
-                        onClick={() => {
-                          if (window.confirm("Revogar este convite? O link deixará de funcionar.")) {
-                            rev.mutate(i.id);
-                          }
-                        }}
-                      >
-                        <Prohibit size={16} className="mr-1" />
-                        Revogar
-                      </Button>
-                    )}
+                    <div className="flex flex-wrap items-center justify-end gap-1">
+                      {!i.revokedAt && i.accessLinkAvailable && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-bloom-aubergine"
+                          disabled={copyAccessLink.isPending && copyAccessLink.variables === i.id}
+                          onClick={() => copyAccessLink.mutate(i.id)}
+                        >
+                          <Copy size={16} className="mr-1" />
+                          Copiar link
+                        </Button>
+                      )}
+                      {!i.revokedAt && !i.accessLinkAvailable && (
+                        <span
+                          className="font-ui text-xs text-bloom-aubergine/45 px-1"
+                          title="Registros antigos não permitem recuperar o link. Gere um novo link de acesso."
+                        >
+                          —
+                        </span>
+                      )}
+                      {!i.revokedAt && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-bloom-garnet"
+                          disabled={rev.isPending}
+                          onClick={() => {
+                            if (window.confirm("Revogar este link? Ele deixará de funcionar.")) {
+                              rev.mutate(i.id);
+                            }
+                          }}
+                        >
+                          <Prohibit size={16} className="mr-1" />
+                          Revogar
+                        </Button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

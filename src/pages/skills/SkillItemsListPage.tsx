@@ -75,7 +75,6 @@ export function SkillItemsListPage() {
               {data ? (
                 <>
                   <span className="font-medium text-bloom-aubergine">{data.title}</span>
-                  <span className="text-bloom-aubergine/50"> · {data.slug}</span>
                 </>
               ) : (
                 "Áudio, YouTube, texto, livro ou filme — na ordem em que aparecem no app."

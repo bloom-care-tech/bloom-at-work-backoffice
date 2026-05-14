@@ -1,7 +1,19 @@
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Buildings, House, SignOut, Users, LinkSimple, Sparkle, WaveSine, Brain, MapTrifold, ChartBar, ShareNetwork } from "@phosphor-icons/react";
-import grupoBoticarioLogo from "@/assets/grupo-boticario.png";
+import {
+  Buildings,
+  House,
+  SignOut,
+  Users,
+  ShieldCheck,
+  LinkSimple,
+  Sparkle,
+  WaveSine,
+  Brain,
+  MapTrifold,
+  ChartBar,
+} from "@phosphor-icons/react";
 import { TrustLine } from "@/components/bloom/primitives";
+import { AdminFirstAccessPasswordOverlay } from "@/components/backoffice/AdminFirstAccessPasswordOverlay";
 import { useBackofficeSession } from "@/lib/backoffice-session";
 import { cn } from "@/lib/utils";
 
@@ -19,19 +31,7 @@ export function BackofficeLayout() {
 
   return (
     <div className="min-h-screen bg-bloom-cream flex flex-col">
-      <div className="bg-bloom-cream-deep border-b border-bloom-aubergine/10 shrink-0">
-        <div className="max-w-[1600px] mx-auto px-4 md:px-6 py-3 flex items-center gap-4">
-          <div className="flex gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-bloom-aubergine/15" />
-            <span className="w-2.5 h-2.5 rounded-full bg-bloom-aubergine/15" />
-            <span className="w-2.5 h-2.5 rounded-full bg-bloom-aubergine/15" />
-          </div>
-          <div className="flex-1 bg-bloom-cream rounded-full px-4 py-1.5 font-ui text-[11px] text-bloom-aubergine/60 truncate">
-            bloom@work · painel administrativo
-          </div>
-        </div>
-      </div>
-
+      <AdminFirstAccessPasswordOverlay />
       <div className="flex flex-1 min-h-0 mx-auto w-full">
         <aside className="hidden md:flex w-64 shrink-0 flex-col bg-bloom-aubergine text-bloom-cream border-r border-bloom-aubergine/30">
           <div className="p-6 border-b border-bloom-cream/10">
@@ -43,7 +43,6 @@ export function BackofficeLayout() {
                 Painel
               </span>
             </Link>
-            <img src={grupoBoticarioLogo} alt="" className="h-10 w-auto mt-4 opacity-90" />
           </div>
           <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
             <NavLink to="/" end className={navClass}>
@@ -58,9 +57,13 @@ export function BackofficeLayout() {
               <Users size={20} weight="duotone" />
               Usuários
             </NavLink>
-            <NavLink to="/convites" className={navClass}>
+            <NavLink to="/administradores" className={navClass}>
+              <ShieldCheck size={20} weight="duotone" />
+              Administradores
+            </NavLink>
+            <NavLink to="/links-acesso" className={navClass}>
               <LinkSimple size={20} weight="duotone" />
-              Convites
+              Links de acesso
             </NavLink>
             <NavLink to="/frases" className={navClass}>
               <Sparkle size={20} weight="duotone" />
@@ -81,10 +84,6 @@ export function BackofficeLayout() {
             <NavLink to="/metricas" className={navClass}>
               <ChartBar size={20} weight="duotone" />
               Métricas
-            </NavLink>
-            <NavLink to="/links-externos" className={navClass}>
-              <ShareNetwork size={20} weight="duotone" />
-              Links externos
             </NavLink>
           </nav>
           <div className="p-3 border-t border-bloom-cream/10">
@@ -125,13 +124,13 @@ export function BackofficeLayout() {
                 { to: "/", label: "Início", end: true },
                 { to: "/empresas", label: "Empresas" },
                 { to: "/usuarios", label: "Usuários" },
-                { to: "/convites", label: "Convites" },
+                { to: "/administradores", label: "Admins" },
+                { to: "/links-acesso", label: "Links" },
                 { to: "/frases", label: "Frases" },
                 { to: "/ondas", label: "Ondas" },
                 { to: "/habilidades", label: "Habil." },
                 { to: "/mapa-documentos", label: "Mapa" },
                 { to: "/metricas", label: "Métricas" },
-                { to: "/links-externos", label: "Links" },
               ].map((l) => (
                 <NavLink
                   key={l.to}

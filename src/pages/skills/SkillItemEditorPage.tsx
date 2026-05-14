@@ -251,11 +251,23 @@ export function SkillItemEditorPage() {
   const save = useMutation({
     mutationFn: async () => {
       if (!title.trim()) throw new Error("Informe o título.");
+      if (type === "text" && !textBody.trim()) {
+        throw new Error("Informe o corpo do texto.");
+      }
+      if (type === "youtube" && !youtubeUrl.trim()) {
+        throw new Error("Informe a URL do YouTube.");
+      }
       if (type === "audio" && !fields.audioUrl.trim()) {
         throw new Error("Informe a URL do áudio ou envie um ficheiro.");
       }
       if (type === "pdf" && !fields.pdfUrl.trim()) {
         throw new Error("Informe a URL do PDF ou envie um ficheiro.");
+      }
+      if (type === "book" && (!bookTitle.trim() || !bookAuthor.trim())) {
+        throw new Error("Informe título e autor do livro.");
+      }
+      if (type === "movie" && !movieTitle.trim()) {
+        throw new Error("Informe o título do filme.");
       }
       const existing = data?.payload as Record<string, unknown> | undefined;
       const payload = buildPayload(type, fields, existing);
@@ -295,6 +307,7 @@ export function SkillItemEditorPage() {
       {(isNew || data) && (
         <FadeIn delay={0.05}>
           <form
+            noValidate
             className="space-y-5 bg-white/90 border border-bloom-aubergine/10 rounded-2xl p-6 md:p-8"
             onSubmit={(e) => {
               e.preventDefault();
@@ -319,13 +332,13 @@ export function SkillItemEditorPage() {
             </div>
             <div className="space-y-2">
               <Label className="font-ui text-bloom-aubergine/80">Título</Label>
-              <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} required />
+              <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} />
             </div>
 
             {type === "text" && (
               <div className="space-y-2">
                 <Label className="font-ui text-bloom-aubergine/80">Corpo (texto)</Label>
-                <textarea className={`${inputCls} min-h-[160px]`} value={textBody} onChange={(e) => setTextBody(e.target.value)} required />
+                <textarea className={`${inputCls} min-h-[160px]`} value={textBody} onChange={(e) => setTextBody(e.target.value)} />
               </div>
             )}
 
@@ -333,7 +346,7 @@ export function SkillItemEditorPage() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label className="font-ui text-bloom-aubergine/80">URL do YouTube</Label>
-                  <input className={inputCls} value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} required />
+                  <input className={inputCls} value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label className="font-ui text-bloom-aubergine/80">Duração (segundos, opcional)</Label>
@@ -452,11 +465,11 @@ export function SkillItemEditorPage() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label className="font-ui text-bloom-aubergine/80">Título do livro</Label>
-                  <input className={inputCls} value={bookTitle} onChange={(e) => setBookTitle(e.target.value)} required />
+                  <input className={inputCls} value={bookTitle} onChange={(e) => setBookTitle(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label className="font-ui text-bloom-aubergine/80">Autor</Label>
-                  <input className={inputCls} value={bookAuthor} onChange={(e) => setBookAuthor(e.target.value)} required />
+                  <input className={inputCls} value={bookAuthor} onChange={(e) => setBookAuthor(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label className="font-ui text-bloom-aubergine/80">Sinopse (opcional)</Label>
@@ -469,7 +482,7 @@ export function SkillItemEditorPage() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label className="font-ui text-bloom-aubergine/80">Título do filme</Label>
-                  <input className={inputCls} value={movieTitle} onChange={(e) => setMovieTitle(e.target.value)} required />
+                  <input className={inputCls} value={movieTitle} onChange={(e) => setMovieTitle(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label className="font-ui text-bloom-aubergine/80">Ano (opcional)</Label>

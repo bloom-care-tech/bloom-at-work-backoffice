@@ -8,10 +8,10 @@ import type {
   VerifyOtpBody,
 } from "./types";
 
-export async function requestOtp(email: string, inviteToken: string): Promise<RequestOtpBody> {
+export async function requestOtp(email: string, signupAccessToken: string): Promise<RequestOtpBody> {
   return apiFetch<RequestOtpBody>("/auth/signup", {
     method: "POST",
-    body: JSON.stringify({ email, inviteToken }),
+    body: JSON.stringify({ email, signupAccessToken }),
   });
 }
 
@@ -91,6 +91,21 @@ export interface CompleteFirstAccessPayload {
 
 export async function completeFirstAccess(payload: CompleteFirstAccessPayload): Promise<MeUserJson> {
   return apiFetch<MeUserJson>("/api/me/complete-first-access", {
+    method: "POST",
+    auth: true,
+    body: JSON.stringify(payload),
+  });
+}
+
+export interface CompleteAdminFirstAccessPayload {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export async function completeAdminFirstAccess(
+  payload: CompleteAdminFirstAccessPayload,
+): Promise<MeUserJson> {
+  return apiFetch<MeUserJson>("/api/me/complete-admin-first-access", {
     method: "POST",
     auth: true,
     body: JSON.stringify(payload),

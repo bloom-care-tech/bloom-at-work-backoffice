@@ -16,12 +16,12 @@ function swapIds(ids: string[], i: number, j: number): string[] {
 }
 
 export function WaveContentsListPage() {
-  const { ondaId } = useParams<{ ondaId: string }>();
+  const { ondaId, moduloId } = useParams<{ ondaId: string; moduloId: string }>();
   const qc = useQueryClient();
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["wave-contents", ondaId],
-    queryFn: () => fetchWaveContentsPage(ondaId!, 1, 200),
-    enabled: Boolean(ondaId),
+    queryKey: ["wave-contents", ondaId, moduloId],
+    queryFn: () => fetchWaveContentsPage(ondaId!, moduloId!, 1, 200),
+    enabled: Boolean(ondaId && moduloId),
   });
 
   const sorted = useMemo(() => (data?.items ?? []).slice().sort((a, b) => a.sortOrder - b.sortOrder), [data]);
@@ -29,11 +29,11 @@ export function WaveContentsListPage() {
   const ids = orderIds ?? sorted.map((c) => c.id);
 
   const reorder = useMutation({
-    mutationFn: (next: string[]) => reorderWaveContents(ondaId!, next),
+    mutationFn: (next: string[]) => reorderWaveContents(ondaId!, moduloId!, next),
     onSuccess: () => {
       toast("Ordem atualizada.");
       setOrderIds(null);
-      void qc.invalidateQueries({ queryKey: ["wave-contents", ondaId] });
+      void qc.invalidateQueries({ queryKey: ["wave-contents", ondaId, moduloId] });
     },
     onError: (e) => {
       setOrderIds(null);
@@ -46,7 +46,7 @@ export function WaveContentsListPage() {
     onSuccess: () => {
       toast("Conteúdo removido.");
       setOrderIds(null);
-      void qc.invalidateQueries({ queryKey: ["wave-contents", ondaId] });
+      void qc.invalidateQueries({ queryKey: ["wave-contents", ondaId, moduloId] });
     },
     onError: (e) => toast(e instanceof ApiError ? e.message : "Erro ao excluir."),
   });
@@ -62,7 +62,7 @@ export function WaveContentsListPage() {
     applyReorder(swapIds(ids, index, j));
   };
 
-  if (!ondaId) return null;
+  if (!ondaId || !moduloId) return null;
 
   return (
     <div className="max-w-5xl space-y-6">
@@ -74,10 +74,10 @@ export function WaveContentsListPage() {
             <p className="font-ui text-sm text-bloom-aubergine/65 mt-1">Qualquer tipo pode ser marcado como exercício. Inclua referências científicas como tipo próprio. Publique para aparecer no app.</p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <PillButton asLink="/ondas" variant="ghost-aubergine">
-              Voltar às ondas
+            <PillButton asLink={`/ondas/${ondaId}/modulos`} variant="ghost-aubergine">
+              Voltar aos módulos
             </PillButton>
-            <PillButton asLink={`/ondas/${ondaId}/conteudos/novo`}>Novo conteúdo</PillButton>
+            <PillButton asLink={`/ondas/${ondaId}/modulos/${moduloId}/conteudos/novo`}>Novo conteúdo</PillButton>
           </div>
         </div>
       </FadeIn>
@@ -134,7 +134,7 @@ export function WaveContentsListPage() {
                             <ArrowDown className="h-4 w-4" />
                           </Button>
                           <Button type="button" variant="ghost" size="icon" className="h-9 w-9" asChild>
-                            <Link to={`/ondas/${ondaId}/conteudos/${id}`} aria-label="Editar">
+                            <Link to={`/ondas/${ondaId}/modulos/${moduloId}/conteudos/${id}`} aria-label="Editar">
                               <PencilSimple className="h-4 w-4" />
                             </Link>
                           </Button>
@@ -164,7 +164,7 @@ export function WaveContentsListPage() {
       {!isLoading && sorted.length === 0 && (
         <FadeIn delay={0.05}>
           <p className="font-ui text-sm text-bloom-aubergine/65">Nenhum conteúdo nesta onda.</p>
-          <PillButton asLink={`/ondas/${ondaId}/conteudos/novo`} className="mt-4">
+          <PillButton asLink={`/ondas/${ondaId}/modulos/${moduloId}/conteudos/novo`} className="mt-4">
             <Plus className="inline mr-2" size={18} weight="bold" />
             Criar conteúdo
           </PillButton>

@@ -10,12 +10,14 @@ import { CompaniesListPage } from "@/pages/companies/CompaniesListPage";
 import { CompanyEditorPage } from "@/pages/companies/CompanyEditorPage";
 import { UsersListPage } from "@/pages/users/UsersListPage";
 import { UserEditorPage } from "@/pages/users/UserEditorPage";
-import { InvitesListPage } from "@/pages/invites/InvitesListPage";
-import { InviteCreatePage } from "@/pages/invites/InviteCreatePage";
+import { NewPlatformAdminPage } from "@/pages/users/NewPlatformAdminPage";
+import { AccessLinksListPage } from "@/pages/access-links/AccessLinksListPage";
+import { NewAccessLinkPage } from "@/pages/access-links/NewAccessLinkPage";
 import { QuotesListPage } from "@/pages/quotes/QuotesListPage";
 import { QuoteEditorPage } from "@/pages/quotes/QuoteEditorPage";
 import { WavesListPage } from "@/pages/waves/WavesListPage";
 import { WaveEditorPage } from "@/pages/waves/WaveEditorPage";
+import { WaveModulesListPage } from "@/pages/wave-modules/WaveModulesListPage";
 import { WaveContentsListPage } from "@/pages/wave-contents/WaveContentsListPage";
 import { WaveContentEditorPage } from "@/pages/wave-contents/WaveContentEditorPage";
 import { SkillsListPage } from "@/pages/skills/SkillsListPage";
@@ -44,17 +46,23 @@ const App = () => (
               <Route path="empresas" element={<CompaniesListPage />} />
               <Route path="empresas/nova" element={<CompanyEditorPage />} />
               <Route path="empresas/:companyId" element={<CompanyEditorPage />} />
-              <Route path="usuarios" element={<UsersListPage />} />
+              <Route path="usuarios" element={<UsersListPage section="company" />} />
               <Route path="usuarios/:userId" element={<UserEditorPage />} />
-              <Route path="convites" element={<InvitesListPage />} />
-              <Route path="convites/novo" element={<InviteCreatePage />} />
+              <Route path="administradores" element={<UsersListPage section="platform" />} />
+              <Route path="administradores/novo" element={<NewPlatformAdminPage />} />
+              <Route path="administradores/:userId" element={<UserEditorPage />} />
+              <Route path="links-acesso" element={<AccessLinksListPage />} />
+              <Route path="links-acesso/novo" element={<NewAccessLinkPage />} />
+              <Route path="convites" element={<Navigate to="/links-acesso" replace />} />
+              <Route path="convites/novo" element={<Navigate to="/links-acesso/novo" replace />} />
               <Route path="frases" element={<QuotesListPage />} />
               <Route path="frases/nova" element={<QuoteEditorPage />} />
               <Route path="frases/:quoteId" element={<QuoteEditorPage />} />
               <Route path="ondas/nova" element={<WaveEditorPage />} />
-              <Route path="ondas/:ondaId/conteudos/novo" element={<WaveContentEditorPage />} />
-              <Route path="ondas/:ondaId/conteudos/:conteudoId" element={<WaveContentEditorPage />} />
-              <Route path="ondas/:ondaId/conteudos" element={<WaveContentsListPage />} />
+              <Route path="ondas/:ondaId/modulos/:moduloId/conteudos/novo" element={<WaveContentEditorPage />} />
+              <Route path="ondas/:ondaId/modulos/:moduloId/conteudos/:conteudoId" element={<WaveContentEditorPage />} />
+              <Route path="ondas/:ondaId/modulos/:moduloId/conteudos" element={<WaveContentsListPage />} />
+              <Route path="ondas/:ondaId/modulos" element={<WaveModulesListPage />} />
               <Route path="ondas/:ondaId" element={<WaveEditorPage />} />
               <Route path="ondas" element={<WavesListPage />} />
               <Route path="habilidades/nova" element={<SkillEditorPage />} />

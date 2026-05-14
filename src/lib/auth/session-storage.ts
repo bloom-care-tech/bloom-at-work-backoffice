@@ -1,4 +1,5 @@
 import type { MeUserJson } from "./types";
+import { isBloomBackofficeOperator } from "./backoffice-access";
 
 export const AUTH_STORAGE_KEY = "bloom_backoffice_auth";
 
@@ -20,7 +21,8 @@ function isPersistedAuth(value: unknown): value is PersistedAuth {
     typeof o.createdAt === "string" &&
     o.me !== null &&
     typeof o.me === "object" &&
-    typeof (o.me as MeUserJson).isAdmin === "boolean"
+    typeof (o.me as MeUserJson).role === "string" &&
+    isBloomBackofficeOperator(o.me as MeUserJson)
   );
 }
 

@@ -103,8 +103,13 @@ function buildPayload(
 export function WaveContentEditorPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { ondaId, conteudoId } = useParams<{ ondaId: string; conteudoId: string }>();
-  const isNew = useMatch({ path: "/ondas/:ondaId/conteudos/novo", end: true }) != null;
+  const { ondaId, moduloId, conteudoId } = useParams<{
+    ondaId: string;
+    moduloId: string;
+    conteudoId: string;
+  }>();
+  const isNew =
+    useMatch({ path: "/ondas/:ondaId/modulos/:moduloId/conteudos/novo", end: true }) != null;
   const id = isNew ? undefined : conteudoId;
 
   const { data, isLoading } = useQuery({
@@ -272,6 +277,9 @@ export function WaveContentEditorPage() {
         throw e instanceof Error ? e : new Error("Invalid payload.");
       }
       if (!title.trim()) throw new Error("Informe o título.");
+      if (kind === "video" && !mediaUrl.trim()) {
+        throw new Error("Informe a URL do vídeo.");
+      }
       if ((kind === "audio" || kind === "pdf") && !mediaUrl.trim()) {
         throw new Error("Informe uma URL externa ou envie um ficheiro.");
       }
@@ -286,7 +294,7 @@ export function WaveContentEditorPage() {
           publishedAt,
         });
       } else {
-        await createWaveContent(ondaId!, {
+        await createWaveContent(ondaId!, moduloId!, {
           kind,
           title: title.trim(),
           payload,
@@ -298,9 +306,9 @@ export function WaveContentEditorPage() {
     },
     onSuccess: () => {
       toast(id ? "Conteúdo atualizado." : "Conteúdo criado.");
-      void qc.invalidateQueries({ queryKey: ["wave-contents", ondaId] });
+      void qc.invalidateQueries({ queryKey: ["wave-contents", ondaId, moduloId] });
       void qc.invalidateQueries({ queryKey: ["wave-content"] });
-      navigate(`/ondas/${ondaId}/conteudos`);
+      navigate(`/ondas/${ondaId}/modulos/${moduloId}/conteudos`);
     },
     onError: (e) => toast(e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Erro ao salvar."),
   });
@@ -325,7 +333,7 @@ export function WaveContentEditorPage() {
     }
   }
 
-  if (!ondaId || (!isNew && !conteudoId)) return null;
+  if (!ondaId || !moduloId || (!isNew && !conteudoId)) return null;
 
   const mediaLabel =
     kind === "video" ? "Video URL" : kind === "audio" ? "Audio URL" : kind === "pdf" ? "PDF URL" : "URL";
@@ -345,6 +353,7 @@ export function WaveContentEditorPage() {
       {(isNew || data) && (
         <FadeIn delay={0.05}>
           <form
+            noValidate
             className="space-y-5 bg-white/90 border border-bloom-aubergine/10 rounded-2xl p-6 md:p-8"
             onSubmit={(e) => {
               e.preventDefault();
@@ -369,7 +378,7 @@ export function WaveContentEditorPage() {
             </div>
             <div className="space-y-2">
               <Label className="font-ui text-bloom-aubergine/80">Título</Label>
-              <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} required />
+              <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} />
             </div>
 
             {kind === "article" && (
@@ -387,6 +396,34 @@ export function WaveContentEditorPage() {
                     Gravado como <code className="text-[11px]">description</code> no payload (campo <code className="text-[11px]">descricao</code> no front).
                   </p>
                 </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="font-ui text-bloom-aubergine/80">Citação em destaque (opcional)</Label>
+                    <textarea
+                      className={`${inputCls} min-h-[72px] resize-y`}
+                      value={typeof articleExtras.quote === "string" ? articleExtras.quote : ""}
+                      onChange={(e) =>
+                        setArticleExtras((prev) => ({ ...prev, quote: e.target.value }))
+                      }
+                      placeholder="Texto curto da citação"
+                      rows={2}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="font-ui text-bloom-aubergine/80">Autor da citação (opcional)</Label>
+                    <input
+                      className={inputCls}
+                      value={typeof articleExtras.author === "string" ? articleExtras.author : ""}
+                      onChange={(e) =>
+                        setArticleExtras((prev) => ({ ...prev, author: e.target.value }))
+                      }
+                      placeholder="Nome ou fonte"
+                    />
+                  </div>
+                </div>
+                <p className="font-ui text-xs text-bloom-aubergine/55 -mt-2">
+                  Gravados como <code className="text-[11px]">quote</code> e <code className="text-[11px]">author</code> no payload. Se um estiver preenchido, o outro também deve estar (validação na API).
+                </p>
                 <div className="space-y-2">
                   <Label className="font-ui text-bloom-aubergine/80">Corpo do artigo</Label>
                   <p className="font-ui text-xs text-bloom-aubergine/55">
@@ -434,7 +471,6 @@ export function WaveContentEditorPage() {
                         ? "https://www.youtube.com/embed/…"
                         : "https://… (URL externa) ou use o envio abaixo"
                     }
-                    required={kind === "video"}
                     disabled={mediaUploading}
                   />
                   {(kind === "audio" || kind === "pdf") && (
@@ -673,7 +709,7 @@ export function WaveContentEditorPage() {
               <PillButton type="submit" disabled={save.isPending}>
                 {save.isPending ? "Salvando…" : "Salvar"}
               </PillButton>
-              <Button type="button" variant="outline" className="rounded-full" onClick={() => navigate(`/ondas/${ondaId}/conteudos`)}>
+              <Button type="button" variant="outline" className="rounded-full" onClick={() => navigate(`/ondas/${ondaId}/modulos/${moduloId}/conteudos`)}>
                 Cancelar
               </Button>
             </div>

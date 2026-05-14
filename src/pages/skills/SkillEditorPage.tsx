@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMatch, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FadeIn, Eyebrow, PillButton } from "@/components/bloom/primitives";
@@ -8,6 +8,11 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { ApiError } from "@/lib/auth/api-client";
 import { createSkill, fetchSkillById, updateSkill } from "@/lib/admin-api";
+import {
+  isValidResourceSlug,
+  resourceSlugValidationMessage,
+  slugFromTitle,
+} from "@/lib/slug";
 
 const inputCls =
   "w-full bg-bloom-cream-deep border border-bloom-aubergine/10 rounded-xl px-4 py-3 font-ui text-sm text-bloom-aubergine placeholder:text-bloom-aubergine/40 focus:outline-none focus:border-bloom-garnet transition-colors duration-260 ease-bloom";
@@ -31,6 +36,7 @@ export function SkillEditorPage() {
   const [whatItIs, setWhatItIs] = useState("");
   const [scienceSays, setScienceSays] = useState("");
   const [active, setActive] = useState(true);
+  const slugManualRef = useRef(false);
 
   useEffect(() => {
     if (!data) return;
@@ -40,12 +46,13 @@ export function SkillEditorPage() {
     setWhatItIs(data.whatItIs ?? "");
     setScienceSays(data.scienceSays ?? "");
     setActive(data.active);
+    slugManualRef.current = false;
   }, [data]);
 
   const save = useMutation({
     mutationFn: async () => {
-      if (!slug.trim() || !title.trim()) {
-        throw new Error("Preencha slug e título.");
+      if (!title.trim()) {
+        throw new Error("Preencha o título.");
       }
       if (id) {
         await updateSkill(id, {
@@ -56,8 +63,12 @@ export function SkillEditorPage() {
           active,
         });
       } else {
+        const normalizedSlug = slugFromTitle(slug.trim() || title);
+        if (!isValidResourceSlug(normalizedSlug)) {
+          throw new Error(resourceSlugValidationMessage());
+        }
         await createSkill({
-          slug: slug.trim().toLowerCase(),
+          slug: normalizedSlug,
           title: title.trim(),
           description: description.trim() || null,
           whatItIs: whatItIs.trim() || undefined,
@@ -88,12 +99,30 @@ export function SkillEditorPage() {
       {(isNew || data) && (
         <FadeIn delay={0.05}>
           <form
+            noValidate
             className="space-y-5 bg-white/90 border border-bloom-aubergine/10 rounded-2xl p-6 md:p-8"
             onSubmit={(e) => {
               e.preventDefault();
               save.mutate();
             }}
           >
+            <div className="space-y-2">
+              <Label htmlFor="skill-title" className="font-ui text-bloom-aubergine/80">
+                Título
+              </Label>
+              <input
+                id="skill-title"
+                className={inputCls}
+                value={title}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setTitle(v);
+                  if (isNew && !slugManualRef.current) {
+                    setSlug(slugFromTitle(v));
+                  }
+                }}
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="skill-slug" className="font-ui text-bloom-aubergine/80">
                 Slug
@@ -102,19 +131,17 @@ export function SkillEditorPage() {
                 id="skill-slug"
                 className={inputCls}
                 value={slug}
-                onChange={(e) => setSlug(e.target.value)}
-                required
+                onChange={(e) => {
+                  if (isNew) {
+                    slugManualRef.current = true;
+                    setSlug(slugFromTitle(e.target.value));
+                  }
+                }}
                 disabled={!isNew}
               />
               {!isNew && (
                 <p className="font-ui text-xs text-bloom-aubergine/50">Slug travado após criação; exclua e recrie para trocar.</p>
               )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="skill-title" className="font-ui text-bloom-aubergine/80">
-                Título
-              </Label>
-              <input id="skill-title" className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="skill-desc" className="font-ui text-bloom-aubergine/80">

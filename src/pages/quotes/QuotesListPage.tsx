@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { Plus, PencilSimple, Trash, DownloadSimple } from "@phosphor-icons/react";
+import { Plus, PencilSimple, Trash, DownloadSimple, UploadSimple } from "@phosphor-icons/react";
 import { FadeIn, Eyebrow, PillButton } from "@/components/bloom/primitives";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,8 +10,11 @@ import { toast } from "@/components/ui/sonner";
 import { ApiError } from "@/lib/auth/api-client";
 import { useAdminCompaniesForSelect } from "@/hooks/use-admin-companies-select";
 import { filterInputCls, filterSelectCls } from "@/lib/backoffice-filters";
-import { deleteQuote, downloadQuoteTemplateXlsx, fetchQuotesPage } from "@/lib/admin-api";
+import { bulkCreateQuotes, deleteQuote, downloadQuoteTemplateXlsx, fetchQuotesPage } from "@/lib/admin-api";
 import { triggerBlobDownload } from "@/lib/download-blob";
+import { parseQuoteBulkXlsx, QUOTE_BULK_IMPORT_MAX_ROWS } from "@/lib/parse-quote-bulk-xlsx";
+import type { BulkQuoteImportPayload } from "@/lib/quote-bulk-import.types";
+import { formatPtBrNumericDateFromYmd, isoYmdToPtBrInput, ptBrInputToIsoYmd } from "@bloom-at-work/lib/format-date";
 
 type QuoteAudienceFilter = "" | "all" | "leader" | "collaborator";
 
@@ -20,8 +23,8 @@ const newQuoteDraft = () => ({
   companyId: "",
   audience: "" as QuoteAudienceFilter,
   active: "any" as "any" | "yes" | "no",
-  from: "",
-  to: "",
+  fromText: "",
+  toText: "",
 });
 
 export function QuotesListPage() {
@@ -62,10 +65,74 @@ export function QuotesListPage() {
     onError: (e) => toast(e instanceof ApiError ? e.message : "Erro ao desativar."),
   });
 
+  const BULK_BATCH = 80;
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const bulkImport = useMutation({
+    mutationFn: async (rows: BulkQuoteImportPayload[]) => {
+      let created = 0;
+      let skipped = 0;
+      const errors: { index: number; code: string; message: string }[] = [];
+      let offset = 0;
+      for (let i = 0; i < rows.length; i += BULK_BATCH) {
+        const batch = rows.slice(i, i + BULK_BATCH);
+        const r = await bulkCreateQuotes(batch);
+        created += r.created;
+        skipped += r.skipped;
+        for (const err of r.errors) errors.push({ ...err, index: err.index + offset });
+        offset += batch.length;
+      }
+      return { created, skipped, errors };
+    },
+    onSuccess: (r) => {
+      toast(`Importação: ${r.created} criadas, ${r.skipped} ignoradas.`);
+      if (r.errors.length > 0) {
+        const sample = r.errors
+          .slice(0, 5)
+          .map((err) => `Entrada ${err.index + 1}: ${err.message}`)
+          .join(" · ");
+        toast("Algumas linhas falharam", {
+          description: `${sample}${r.errors.length > 5 ? "…" : ""}`,
+        });
+      }
+      void qc.invalidateQueries({ queryKey: ["quotes"] });
+      void qc.invalidateQueries({ queryKey: ["dash"] });
+    },
+    onError: (e) => toast(e instanceof ApiError ? e.message : "Erro ao importar."),
+  });
+
+  const handleQuoteSpreadsheetChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = e.target.files?.[0];
+    e.target.value = "";
+    if (!picked) return;
+    if (!picked.name.toLowerCase().endsWith(".xlsx")) {
+      toast("Use um ficheiro .xlsx.");
+      return;
+    }
+    let buf: ArrayBuffer;
+    try {
+      buf = await picked.arrayBuffer();
+    } catch {
+      toast("Não foi possível ler o ficheiro.");
+      return;
+    }
+    const parsed = await parseQuoteBulkXlsx(buf);
+    if (!parsed.ok) {
+      toast(parsed.message);
+      return;
+    }
+    if (parsed.truncated) {
+      toast("Aviso", {
+        description: `Foram consideradas no máximo ${QUOTE_BULK_IMPORT_MAX_ROWS} linhas; divida o ficheiro para importar o restante.`,
+      });
+    }
+    bulkImport.mutate(parsed.quotes);
+  };
+
   const download = async () => {
     try {
       const blob = await downloadQuoteTemplateXlsx();
-      triggerBlobDownload(blob, null, "quote-bulk-template.xlsx");
+      triggerBlobDownload(blob, null, "importar_quotes_template.xlsx");
       toast("Download iniciado.");
     } catch (e) {
       toast(e instanceof ApiError ? e.message : "Erro no download.");
@@ -73,14 +140,29 @@ export function QuotesListPage() {
   };
 
   const applyFilters = () => {
+    const fromIso = draft.fromText.trim() ? ptBrInputToIsoYmd(draft.fromText.trim()) : "";
+    const toIso = draft.toText.trim() ? ptBrInputToIsoYmd(draft.toText.trim()) : "";
+    if (draft.fromText.trim() && !fromIso) {
+      toast("Data inicial inválida. Use dd/mm/aaaa.");
+      return;
+    }
+    if (draft.toText.trim() && !toIso) {
+      toast("Data final inválida. Use dd/mm/aaaa.");
+      return;
+    }
     setApplied({
       search: draft.search.trim(),
       companyId: draft.companyId,
       audience: draft.audience,
       active: draft.active === "any" ? undefined : draft.active === "yes",
-      from: draft.from,
-      to: draft.to,
+      from: fromIso,
+      to: toIso,
     });
+    setDraft((d) => ({
+      ...d,
+      fromText: fromIso ? isoYmdToPtBrInput(fromIso) : "",
+      toText: toIso ? isoYmdToPtBrInput(toIso) : "",
+    }));
     setPage(1);
   };
 
@@ -106,6 +188,24 @@ export function QuotesListPage() {
           <p className="font-ui text-sm text-bloom-aubergine/65 mt-1">Frases exibidas no hub, por data e audiência.</p>
         </FadeIn>
         <div className="flex flex-wrap gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            className="sr-only"
+            aria-label="Importar planilha Excel"
+            onChange={(ev) => void handleQuoteSpreadsheetChange(ev)}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            className="rounded-full border-bloom-aubergine/20 font-ui"
+            disabled={bulkImport.isPending}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <UploadSimple size={18} className="mr-2" />
+            {bulkImport.isPending ? "A importar…" : "Importar planilha"}
+          </Button>
           <Button
             type="button"
             variant="outline"
@@ -200,10 +300,12 @@ export function QuotesListPage() {
               </Label>
               <input
                 id="quotes-filter-from"
-                type="date"
                 className={filterInputCls}
-                value={draft.from}
-                onChange={(e) => setDraft((d) => ({ ...d, from: e.target.value }))}
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="dd/mm/aaaa"
+                value={draft.fromText}
+                onChange={(e) => setDraft((d) => ({ ...d, fromText: e.target.value }))}
               />
             </div>
             <div className="space-y-1">
@@ -212,10 +314,12 @@ export function QuotesListPage() {
               </Label>
               <input
                 id="quotes-filter-to"
-                type="date"
                 className={filterInputCls}
-                value={draft.to}
-                onChange={(e) => setDraft((d) => ({ ...d, to: e.target.value }))}
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="dd/mm/aaaa"
+                value={draft.toText}
+                onChange={(e) => setDraft((d) => ({ ...d, toText: e.target.value }))}
               />
             </div>
           </div>
@@ -261,7 +365,7 @@ export function QuotesListPage() {
               {data?.items.map((q) => (
                 <tr key={q.id} className="border-t border-bloom-aubergine/8 hover:bg-bloom-cream/40">
                   <td className="px-4 py-3 whitespace-nowrap text-bloom-aubergine">
-                    {new Date(q.publicationDate + "T12:00:00").toLocaleDateString("pt-BR")}
+                    {formatPtBrNumericDateFromYmd(q.publicationDate)}
                   </td>
                   <td className="px-4 py-3 text-bloom-aubergine max-w-xs truncate">{q.text}</td>
                   <td className="px-4 py-3 text-bloom-aubergine/80">{q.author}</td>

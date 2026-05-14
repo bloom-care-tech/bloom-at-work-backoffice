@@ -37,11 +37,11 @@ describe("LoginPage (integration)", () => {
 
     const raw = localStorage.getItem(AUTH_STORAGE_KEY);
     expect(raw).toBeTruthy();
-    const parsed = JSON.parse(raw!) as { kind: string; accessToken: string; refreshToken: string; me: { isAdmin: boolean } };
+    const parsed = JSON.parse(raw!) as { kind: string; accessToken: string; refreshToken: string; me: { role: string } };
     expect(parsed.kind).toBe("backoffice");
     expect(parsed.accessToken).toBe("jwt-test-access");
     expect(parsed.refreshToken).toBe("jwt-test-refresh");
-    expect(parsed.me.isAdmin).toBe(true);
+    expect(parsed.me.role).toBe("admin");
   });
 
   it("shows API error message on invalid credentials", async () => {

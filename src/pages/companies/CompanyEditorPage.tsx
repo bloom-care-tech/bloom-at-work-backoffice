@@ -3,6 +3,7 @@ import { useMatch, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FadeIn, Eyebrow, PillButton } from "@/components/bloom/primitives";
 import { Label } from "@/components/ui/label";
+import { FieldError } from "@/components/ui/field-error";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,6 +18,7 @@ import {
   putCompanyHubLinks,
   uploadEditorialMediaAsset,
 } from "@/lib/admin-api";
+import { isoToPtBrDatetimeLocalParts, ptBrLocalDatetimeToIso } from "@bloom-at-work/lib/format-date";
 
 const inputCls =
   "w-full bg-bloom-cream-deep border border-bloom-aubergine/10 rounded-xl px-4 py-3 font-ui text-sm text-bloom-aubergine placeholder:text-bloom-aubergine/40 focus:outline-none focus:border-bloom-garnet transition-colors duration-260 ease-bloom";
@@ -59,12 +61,15 @@ export function CompanyEditorPage() {
   const [checkinUrl, setCheckinUrl] = useState("");
   const [lTitle, setLTitle] = useState("");
   const [lGuest, setLGuest] = useState("");
-  const [lAt, setLAt] = useState("");
+  const [lAtDate, setLAtDate] = useState("");
+  const [lAtTime, setLAtTime] = useState("");
   const [lRsvp, setLRsvp] = useState("");
   const [cTitle, setCTitle] = useState("");
   const [cGuest, setCGuest] = useState("");
-  const [cAt, setCAt] = useState("");
+  const [cAtDate, setCAtDate] = useState("");
+  const [cAtTime, setCAtTime] = useState("");
   const [cRsvp, setCRsvp] = useState("");
+  const [clientFormError, setClientFormError] = useState("");
 
   useEffect(() => {
     if (!hub) return;
@@ -72,34 +77,50 @@ export function CompanyEditorPage() {
     setCheckinUrl(hub.weeklyCheckinTypeformUrl ?? "");
     setLTitle(hub.leaderNextEventTitle ?? "");
     setLGuest(hub.leaderNextEventGuest ?? "");
-    setLAt(hub.leaderNextEventAt ? hub.leaderNextEventAt.slice(0, 16) : "");
+    const lParts = hub.leaderNextEventAt ? isoToPtBrDatetimeLocalParts(hub.leaderNextEventAt) : { date: "", time: "" };
+    setLAtDate(lParts.date);
+    setLAtTime(lParts.time);
     setLRsvp(hub.leaderNextEventRsvpUrl ?? "");
     setCTitle(hub.collaboratorNextEventTitle ?? "");
     setCGuest(hub.collaboratorNextEventGuest ?? "");
-    setCAt(hub.collaboratorNextEventAt ? hub.collaboratorNextEventAt.slice(0, 16) : "");
+    const cParts = hub.collaboratorNextEventAt ? isoToPtBrDatetimeLocalParts(hub.collaboratorNextEventAt) : { date: "", time: "" };
+    setCAtDate(cParts.date);
+    setCAtTime(cParts.time);
     setCRsvp(hub.collaboratorNextEventRsvpUrl ?? "");
   }, [hub]);
 
   const saveHub = useMutation({
-    mutationFn: () =>
-      putCompanyHubLinks(id!, {
+    mutationFn: () => {
+      if (!lAtDate.trim() && lAtTime.trim()) throw new Error("Informe a data do próximo evento (líder) ou limpe a hora.");
+      if (!cAtDate.trim() && cAtTime.trim()) throw new Error("Informe a data do próximo evento (colaborador) ou limpe a hora.");
+      const leaderIso = lAtDate.trim()
+        ? ptBrLocalDatetimeToIso(lAtDate.trim(), lAtTime.trim() || "12:00")
+        : null;
+      const collabIso = cAtDate.trim()
+        ? ptBrLocalDatetimeToIso(cAtDate.trim(), cAtTime.trim() || "12:00")
+        : null;
+      if (lAtDate.trim() && !leaderIso) throw new Error("Data ou hora inválida no próximo evento (líder).");
+      if (cAtDate.trim() && !collabIso) throw new Error("Data ou hora inválida no próximo evento (colaborador).");
+      return putCompanyHubLinks(id!, {
         suggestionsTypeformUrl: sugUrl.trim() || null,
         weeklyCheckinTypeformUrl: checkinUrl.trim() || null,
         leaderNextEventTitle: lTitle.trim() || null,
         leaderNextEventGuest: lGuest.trim() || null,
-        leaderNextEventAt: lAt ? new Date(lAt).toISOString() : null,
+        leaderNextEventAt: leaderIso,
         leaderNextEventRsvpUrl: lRsvp.trim() || null,
         collaboratorNextEventTitle: cTitle.trim() || null,
         collaboratorNextEventGuest: cGuest.trim() || null,
-        collaboratorNextEventAt: cAt ? new Date(cAt).toISOString() : null,
+        collaboratorNextEventAt: collabIso,
         collaboratorNextEventRsvpUrl: cRsvp.trim() || null,
-      }),
+      });
+    },
     onSuccess: () => {
       toast("Links do hub salvos.");
       void qc.invalidateQueries({ queryKey: ["company-hub-links", id] });
       void qc.invalidateQueries({ queryKey: ["dashboard", "summary"] });
     },
-    onError: (e) => toast(e instanceof ApiError ? e.message : "Erro ao salvar links."),
+    onError: (e) =>
+      toast(e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Erro ao salvar links."),
   });
 
   const save = useMutation({
@@ -174,15 +195,37 @@ export function CompanyEditorPage() {
       {(isNew || data) && (
         <FadeIn delay={0.05}>
           <form
+            noValidate
             className="space-y-5 bg-white/90 border border-bloom-aubergine/10 rounded-2xl p-6 md:p-8"
             onSubmit={(e) => {
               e.preventDefault();
+              const allowedEmailDomains = domains
+                .split(/[\n,]+/)
+                .map((s) => s.trim().toLowerCase())
+                .filter(Boolean);
+              if (!name.trim()) {
+                setClientFormError("Informe o nome da empresa.");
+                return;
+              }
+              if (allowedEmailDomains.length === 0) {
+                setClientFormError("Informe ao menos um domínio de e-mail.");
+                return;
+              }
+              setClientFormError("");
               save.mutate();
             }}
           >
+            <FieldError message={clientFormError} className="-mt-1 mb-1" />
             <div className="space-y-2">
               <Label className="font-ui text-bloom-aubergine/80">Nome da empresa</Label>
-              <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} required />
+              <input
+                className={inputCls}
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  if (clientFormError) setClientFormError("");
+                }}
+              />
             </div>
             <div className="space-y-2">
               <Label className="font-ui text-bloom-aubergine/80">Domínios de e-mail permitidos</Label>
@@ -278,14 +321,44 @@ export function CompanyEditorPage() {
                 <div className="grid sm:grid-cols-2 gap-3">
                   <input className={inputCls} placeholder="Título" value={lTitle} onChange={(e) => setLTitle(e.target.value)} />
                   <input className={inputCls} placeholder="Convidado" value={lGuest} onChange={(e) => setLGuest(e.target.value)} />
-                  <input className={inputCls} type="datetime-local" value={lAt} onChange={(e) => setLAt(e.target.value)} />
+                  <input
+                    className={inputCls}
+                    placeholder="Data (dd/mm/aaaa)"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={lAtDate}
+                    onChange={(e) => setLAtDate(e.target.value)}
+                  />
+                  <input
+                    className={inputCls}
+                    placeholder="Hora (hh:mm, 24h)"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={lAtTime}
+                    onChange={(e) => setLAtTime(e.target.value)}
+                  />
                   <input className={inputCls} placeholder="RSVP https" value={lRsvp} onChange={(e) => setLRsvp(e.target.value)} />
                 </div>
                 <p className="font-ui text-sm text-bloom-garnet pt-2">Próximo evento — colaborador</p>
                 <div className="grid sm:grid-cols-2 gap-3">
                   <input className={inputCls} placeholder="Título" value={cTitle} onChange={(e) => setCTitle(e.target.value)} />
                   <input className={inputCls} placeholder="Convidado" value={cGuest} onChange={(e) => setCGuest(e.target.value)} />
-                  <input className={inputCls} type="datetime-local" value={cAt} onChange={(e) => setCAt(e.target.value)} />
+                  <input
+                    className={inputCls}
+                    placeholder="Data (dd/mm/aaaa)"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={cAtDate}
+                    onChange={(e) => setCAtDate(e.target.value)}
+                  />
+                  <input
+                    className={inputCls}
+                    placeholder="Hora (hh:mm, 24h)"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={cAtTime}
+                    onChange={(e) => setCAtTime(e.target.value)}
+                  />
                   <input className={inputCls} placeholder="RSVP https" value={cRsvp} onChange={(e) => setCRsvp(e.target.value)} />
                 </div>
                 <PillButton type="submit" disabled={saveHub.isPending}>

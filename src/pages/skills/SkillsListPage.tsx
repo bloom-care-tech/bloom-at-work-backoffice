@@ -82,7 +82,6 @@ export function SkillsListPage() {
               <thead>
                 <tr className="border-b border-bloom-aubergine/10 text-left text-bloom-aubergine/55 uppercase text-[11px] tracking-wide">
                   <th className="px-4 py-3 w-10">#</th>
-                  <th className="px-4 py-3">Slug</th>
                   <th className="px-4 py-3">Título</th>
                   <th className="px-4 py-3">Itens</th>
                   <th className="px-4 py-3">Ativa</th>
@@ -96,7 +95,6 @@ export function SkillsListPage() {
                   return (
                     <tr key={id} className="border-b border-bloom-aubergine/8 last:border-0">
                       <td className="px-4 py-3 text-bloom-aubergine/50">{index + 1}</td>
-                      <td className="px-4 py-3 font-medium">{row.slug}</td>
                       <td className="px-4 py-3">{row.title}</td>
                       <td className="px-4 py-3">{row.itemCount}</td>
                       <td className="px-4 py-3">{row.active ? "Sim" : "Não"}</td>

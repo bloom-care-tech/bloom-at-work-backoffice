@@ -13,8 +13,14 @@ export function DashboardPage() {
   const tiles = data
     ? [
         { label: "Empresas", value: data.companies, hint: "Organizações", to: "/empresas" },
-        { label: "Usuários", value: data.users, hint: "Colaboradores", to: "/usuarios" },
-        { label: "Convites ativos", value: data.invitesActive, hint: "Links não revogados", to: "/convites" },
+        { label: "Usuários", value: data.users, hint: "Colaboradores e líderes", to: "/usuarios" },
+        {
+          label: "Administradores Bloom",
+          value: data.platformAdmins ?? 0,
+          hint: "Contas operadoras",
+          to: "/administradores",
+        },
+        { label: "Links de acesso ativos", value: data.signupAccessActive, hint: "Links não revogados", to: "/links-acesso" },
         { label: "Frases", value: data.quotes, hint: "Bloom do dia", to: "/frases" },
         { label: "Ondas", value: data.waves, hint: "Trilha editorial", to: "/ondas" },
         { label: "Conteúdos de onda", value: data.waveContents, hint: "Itens publicáveis", to: "/ondas" },
