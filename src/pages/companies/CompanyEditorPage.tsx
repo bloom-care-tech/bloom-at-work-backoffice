@@ -19,6 +19,13 @@ import {
   uploadEditorialMediaAsset,
 } from "@/lib/admin-api";
 import { isoToPtBrDatetimeLocalParts, ptBrLocalDatetimeToIso } from "@bloom-at-work/lib/format-date";
+import { getHubPublicHttpsUrlError } from "@hub-url-validation";
+
+type HubUrlErrorKey =
+  | "suggestionsTypeformUrl"
+  | "weeklyCheckinTypeformUrl"
+  | "leaderNextEventRsvpUrl"
+  | "collaboratorNextEventRsvpUrl";
 
 const inputCls =
   "w-full bg-bloom-cream-deep border border-bloom-aubergine/10 rounded-xl px-4 py-3 font-ui text-sm text-bloom-aubergine placeholder:text-bloom-aubergine/40 focus:outline-none focus:border-bloom-garnet transition-colors duration-260 ease-bloom";
@@ -69,7 +76,16 @@ export function CompanyEditorPage() {
   const [cAtDate, setCAtDate] = useState("");
   const [cAtTime, setCAtTime] = useState("");
   const [cRsvp, setCRsvp] = useState("");
+  const [hubUrlErrors, setHubUrlErrors] = useState<Partial<Record<HubUrlErrorKey, string>>>({});
   const [clientFormError, setClientFormError] = useState("");
+
+  function clearHubUrlError(key: HubUrlErrorKey) {
+    setHubUrlErrors((prev) => {
+      if (prev[key] === undefined) return prev;
+      const { [key]: _removed, ...rest } = prev;
+      return rest;
+    });
+  }
 
   useEffect(() => {
     if (!hub) return;
@@ -115,6 +131,7 @@ export function CompanyEditorPage() {
       });
     },
     onSuccess: () => {
+      setHubUrlErrors({});
       toast("Links do hub salvos.");
       void qc.invalidateQueries({ queryKey: ["company-hub-links", id] });
       void qc.invalidateQueries({ queryKey: ["dashboard", "summary"] });
@@ -299,23 +316,58 @@ export function CompanyEditorPage() {
         <FadeIn delay={0.1}>
           <div className="space-y-4 bg-white/90 border border-bloom-aubergine/10 rounded-2xl p-6 md:p-8">
             <h2 className="font-serif-display text-xl text-bloom-aubergine">Links do hub</h2>
-            <p className="font-ui text-xs text-bloom-aubergine/55">URLs devem ser https. Campos vazios removem o valor.</p>
+            <div className="font-ui text-xs text-bloom-aubergine/55 space-y-1.5 leading-relaxed">
+              <p>Use apenas URLs públicas em <strong className="text-bloom-aubergine/70">https://</strong>. Campos vazios removem o valor.</p>
+              <p className="text-bloom-aubergine/50">
+                Não são aceites: http, javascript/data, localhost ou IPs privados/internos (ex.: 10.x, 192.168.x, 127.x).
+              </p>
+            </div>
             {hubLoading && <p className="font-ui text-sm text-bloom-aubergine/60">Carregando links…</p>}
             {hub && (
               <form
                 className="space-y-4"
                 onSubmit={(e) => {
                   e.preventDefault();
+                  const next: Partial<Record<HubUrlErrorKey, string>> = {};
+                  const bump = (key: HubUrlErrorKey, raw: string) => {
+                    const trimmed = raw.trim();
+                    const err = getHubPublicHttpsUrlError(trimmed === "" ? null : trimmed);
+                    if (err) next[key] = err;
+                  };
+                  bump("suggestionsTypeformUrl", sugUrl);
+                  bump("weeklyCheckinTypeformUrl", checkinUrl);
+                  bump("leaderNextEventRsvpUrl", lRsvp);
+                  bump("collaboratorNextEventRsvpUrl", cRsvp);
+                  setHubUrlErrors(next);
+                  if (Object.keys(next).length > 0) return;
                   saveHub.mutate();
                 }}
               >
                 <div className="space-y-2">
                   <Label className="font-ui text-bloom-aubergine/80">Typeform sugestões</Label>
-                  <input className={inputCls} value={sugUrl} onChange={(e) => setSugUrl(e.target.value)} />
+                  <input
+                    className={inputCls}
+                    value={sugUrl}
+                    onChange={(e) => {
+                      setSugUrl(e.target.value);
+                      clearHubUrlError("suggestionsTypeformUrl");
+                    }}
+                    aria-invalid={Boolean(hubUrlErrors.suggestionsTypeformUrl)}
+                  />
+                  <FieldError message={hubUrlErrors.suggestionsTypeformUrl} />
                 </div>
                 <div className="space-y-2">
                   <Label className="font-ui text-bloom-aubergine/80">Typeform check-in semanal</Label>
-                  <input className={inputCls} value={checkinUrl} onChange={(e) => setCheckinUrl(e.target.value)} />
+                  <input
+                    className={inputCls}
+                    value={checkinUrl}
+                    onChange={(e) => {
+                      setCheckinUrl(e.target.value);
+                      clearHubUrlError("weeklyCheckinTypeformUrl");
+                    }}
+                    aria-invalid={Boolean(hubUrlErrors.weeklyCheckinTypeformUrl)}
+                  />
+                  <FieldError message={hubUrlErrors.weeklyCheckinTypeformUrl} />
                 </div>
                 <p className="font-ui text-sm text-bloom-garnet pt-2">Próximo evento — líder</p>
                 <div className="grid sm:grid-cols-2 gap-3">
@@ -337,7 +389,17 @@ export function CompanyEditorPage() {
                     value={lAtTime}
                     onChange={(e) => setLAtTime(e.target.value)}
                   />
-                  <input className={inputCls} placeholder="RSVP https" value={lRsvp} onChange={(e) => setLRsvp(e.target.value)} />
+                  <input
+                    className={inputCls}
+                    placeholder="RSVP https"
+                    value={lRsvp}
+                    onChange={(e) => {
+                      setLRsvp(e.target.value);
+                      clearHubUrlError("leaderNextEventRsvpUrl");
+                    }}
+                    aria-invalid={Boolean(hubUrlErrors.leaderNextEventRsvpUrl)}
+                  />
+                  <FieldError message={hubUrlErrors.leaderNextEventRsvpUrl} className="sm:col-span-2" />
                 </div>
                 <p className="font-ui text-sm text-bloom-garnet pt-2">Próximo evento — colaborador</p>
                 <div className="grid sm:grid-cols-2 gap-3">
@@ -359,7 +421,17 @@ export function CompanyEditorPage() {
                     value={cAtTime}
                     onChange={(e) => setCAtTime(e.target.value)}
                   />
-                  <input className={inputCls} placeholder="RSVP https" value={cRsvp} onChange={(e) => setCRsvp(e.target.value)} />
+                  <input
+                    className={inputCls}
+                    placeholder="RSVP https"
+                    value={cRsvp}
+                    onChange={(e) => {
+                      setCRsvp(e.target.value);
+                      clearHubUrlError("collaboratorNextEventRsvpUrl");
+                    }}
+                    aria-invalid={Boolean(hubUrlErrors.collaboratorNextEventRsvpUrl)}
+                  />
+                  <FieldError message={hubUrlErrors.collaboratorNextEventRsvpUrl} className="sm:col-span-2" />
                 </div>
                 <PillButton type="submit" disabled={saveHub.isPending}>
                   {saveHub.isPending ? "Salvando links…" : "Salvar links do hub"}

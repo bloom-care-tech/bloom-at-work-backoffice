@@ -10,7 +10,8 @@
     "noEmit": true,
     "paths": {
       "@/*": ["./src/*"],
-      "@bloom-at-work/*": ["../bloom-at-work/src/*"]
+      "@bloom-at-work/*": ["../bloom-at-work/src/*"],
+      "@hub-url-validation": ["../bloom-at-work-api/src/common/validation/hub-public-https-url.ts"]
     },
     "skipLibCheck": true,
     "strict": false,
