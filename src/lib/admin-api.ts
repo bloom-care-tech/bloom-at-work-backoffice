@@ -414,7 +414,7 @@ export async function reorderWaveContents(waveId: string, moduleId: string, ids:
   });
 }
 
-export type EditorialMediaUploadContext = "wave" | "document_map" | "skills" | "company";
+export type EditorialMediaUploadContext = "wave" | "document_map" | "skills" | "company" | "expert";
 
 export async function uploadEditorialMediaAsset(
   file: File,
@@ -430,6 +430,57 @@ export async function uploadEditorialMediaAsset(
       body: form,
     },
   );
+}
+
+export interface EditorialExpertDto {
+  id: string;
+  name: string;
+  specialty: string;
+  bio: string;
+  photoUrl: string | null;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function fetchEditorialExperts(activeOnly?: boolean) {
+  const qs = activeOnly === true ? "?activeOnly=true" : "";
+  return apiFetch<{ items: EditorialExpertDto[] }>(`/admin/especialistas${qs}`, { method: "GET", auth: true });
+}
+
+export async function fetchEditorialExpert(id: string) {
+  return apiFetch<EditorialExpertDto>(`/admin/especialistas/${encodeURIComponent(id)}`, { method: "GET", auth: true });
+}
+
+export async function createEditorialExpert(body: {
+  name: string;
+  specialty: string;
+  bio?: string;
+  photoUrl?: string | null;
+  active?: boolean;
+}) {
+  return apiFetch<{ id: string }>("/admin/especialistas", { method: "POST", auth: true, body: JSON.stringify(body) });
+}
+
+export async function updateEditorialExpert(
+  id: string,
+  body: Partial<{
+    name: string;
+    specialty: string;
+    bio: string;
+    photoUrl: string | null;
+    active: boolean;
+  }>,
+) {
+  return apiFetch<{ ok: true }>(`/admin/especialistas/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    auth: true,
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deleteEditorialExpert(id: string) {
+  return apiFetch<{ ok: true }>(`/admin/especialistas/${encodeURIComponent(id)}`, { method: "DELETE", auth: true });
 }
 
 export interface SkillListItemDto {

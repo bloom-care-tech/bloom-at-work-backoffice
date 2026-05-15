@@ -11,6 +11,7 @@ import {
   Brain,
   MapTrifold,
   ChartBar,
+  UserCircle,
 } from "@phosphor-icons/react";
 import { TrustLine } from "@/components/bloom/primitives";
 import { AdminFirstAccessPasswordOverlay } from "@/components/backoffice/AdminFirstAccessPasswordOverlay";
@@ -73,6 +74,10 @@ export function BackofficeLayout() {
               <WaveSine size={20} weight="duotone" />
               Ondas
             </NavLink>
+            <NavLink to="/especialistas" className={navClass}>
+              <UserCircle size={20} weight="duotone" />
+              Especialistas
+            </NavLink>
             <NavLink to="/habilidades" className={navClass}>
               <Brain size={20} weight="duotone" />
               Habilidades
@@ -128,6 +133,7 @@ export function BackofficeLayout() {
                 { to: "/links-acesso", label: "Links" },
                 { to: "/frases", label: "Frases" },
                 { to: "/ondas", label: "Ondas" },
+                { to: "/especialistas", label: "Espec." },
                 { to: "/habilidades", label: "Habil." },
                 { to: "/mapa-documentos", label: "Mapa" },
                 { to: "/metricas", label: "Métricas" },

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useMatch, useNavigate, useParams } from "react-router-dom";
+import { useMatch, useNavigate, useParams, Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Eye, Plus, Trash } from "@phosphor-icons/react";
 import { FadeIn, Eyebrow, PillButton } from "@/components/bloom/primitives";
@@ -10,6 +10,7 @@ import { toast } from "@/components/ui/sonner";
 import { ApiError } from "@/lib/auth/api-client";
 import {
   createWaveContent,
+  fetchEditorialExperts,
   fetchWaveContent,
   updateWaveContent,
   uploadEditorialMediaAsset,
@@ -120,6 +121,11 @@ export function WaveContentEditorPage() {
 
   const [kind, setKind] = useState<WaveContentKindApi>("article");
   const [title, setTitle] = useState("");
+  const { data: expertsForArticles } = useQuery({
+    queryKey: ["editorial-experts", true],
+    queryFn: () => fetchEditorialExperts(true),
+    enabled: kind === "article",
+  });
   const [isExercise, setIsExercise] = useState(false);
   const [isNewFlag, setIsNewFlag] = useState(false);
   const [published, setPublished] = useState(true);
@@ -396,6 +402,35 @@ export function WaveContentEditorPage() {
                     Gravado como <code className="text-[11px]">description</code> no payload (campo <code className="text-[11px]">descricao</code> no front).
                   </p>
                 </div>
+                <div className="space-y-2">
+                  <Label className="font-ui text-bloom-aubergine/80">Especialista (autor do artigo)</Label>
+                  <select
+                    className={inputCls}
+                    value={typeof articleExtras.expertId === "string" ? articleExtras.expertId : ""}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setArticleExtras((prev) => {
+                        const next = { ...prev };
+                        if (!v) delete next.expertId;
+                        else next.expertId = v;
+                        return next;
+                      });
+                    }}
+                  >
+                    <option value="">Nenhum</option>
+                    {(expertsForArticles?.items ?? []).map((ex) => (
+                      <option key={ex.id} value={ex.id}>
+                        {ex.name} — {ex.specialty}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="font-ui text-xs text-bloom-aubergine/55">
+                    Gravado como <code className="text-[11px]">expertId</code> no payload.{" "}
+                    <Link to="/especialistas" className="text-bloom-garnet hover:underline">
+                      Gerir especialistas
+                    </Link>
+                  </p>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label className="font-ui text-bloom-aubergine/80">Citação em destaque (opcional)</Label>
@@ -422,7 +457,9 @@ export function WaveContentEditorPage() {
                   </div>
                 </div>
                 <p className="font-ui text-xs text-bloom-aubergine/55 -mt-2">
-                  Gravados como <code className="text-[11px]">quote</code> e <code className="text-[11px]">author</code> no payload. Se um estiver preenchido, o outro também deve estar (validação na API).
+                  Gravados como <code className="text-[11px]">quote</code> e <code className="text-[11px]">author</code> no payload. Se{" "}
+                  <code className="text-[11px]">author</code> estiver vazio, o app usa o especialista do artigo como &quot;Nome,
+                  Especialidade&quot;. Não é possível ter <code className="text-[11px]">author</code> sem <code className="text-[11px]">quote</code>.
                 </p>
                 <div className="space-y-2">
                   <Label className="font-ui text-bloom-aubergine/80">Corpo do artigo</Label>
@@ -685,6 +722,7 @@ export function WaveContentEditorPage() {
               isExercise={isExercise}
               isNew={isNewFlag}
               published={published}
+              articleExperts={expertsForArticles?.items}
             />
 
             <div className="flex items-center gap-3">

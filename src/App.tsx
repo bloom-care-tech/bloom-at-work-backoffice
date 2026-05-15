@@ -30,6 +30,8 @@ import { CategoryDocumentsListPage } from "@/pages/documents/CategoryDocumentsLi
 import { CategoryDocumentEditorPage } from "@/pages/documents/CategoryDocumentEditorPage";
 import { MetricsPage } from "@/pages/metrics/MetricsPage";
 import { ExternalLinksHelpPage } from "@/pages/links/ExternalLinksHelpPage";
+import { ExpertsListPage } from "@/pages/experts/ExpertsListPage";
+import { ExpertEditorPage } from "@/pages/experts/ExpertEditorPage";
 
 const queryClient = new QueryClient();
 
@@ -77,6 +79,9 @@ const App = () => (
               <Route path="mapa-documentos/:categoryId/documentos" element={<CategoryDocumentsListPage />} />
               <Route path="mapa-documentos/:categoryId" element={<DocumentCategoryEditorPage />} />
               <Route path="mapa-documentos" element={<DocumentCategoriesListPage />} />
+              <Route path="especialistas/novo" element={<ExpertEditorPage />} />
+              <Route path="especialistas/:expertId" element={<ExpertEditorPage />} />
+              <Route path="especialistas" element={<ExpertsListPage />} />
               <Route path="metricas" element={<MetricsPage />} />
               <Route path="links-externos" element={<ExternalLinksHelpPage />} />
             </Route>
