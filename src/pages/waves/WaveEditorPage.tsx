@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMatch, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FadeIn, Eyebrow, PillButton } from "@/components/bloom/primitives";
+import { WaveHierarchyBreadcrumb } from "@/components/waves/WaveHierarchyBreadcrumb";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -89,10 +90,18 @@ export function WaveEditorPage() {
 
   if (!isNew && !ondaId) return null;
 
+  const breadcrumbs = useMemo(() => {
+    const root = { label: "Ondas", to: "/ondas" as const };
+    if (isNew) return [root, { label: "Nova onda" }];
+    const waveLabel = (title.trim() || data?.title || (isLoading ? "…" : "Onda")).trim();
+    return [root, { label: waveLabel }];
+  }, [isNew, title, data?.title, isLoading]);
+
   return (
     <div className="max-w-2xl space-y-6">
       <FadeIn>
         <Eyebrow tone="garnet">Trilha</Eyebrow>
+        <WaveHierarchyBreadcrumb items={breadcrumbs} />
         <h1 className="font-serif-display text-3xl text-bloom-aubergine mt-1">{isNew ? "Nova onda" : "Editar onda"}</h1>
         <p className="font-ui text-sm text-bloom-aubergine/65 mt-1">Slug em minúsculas e hífens (ex.: minha-onda).</p>
       </FadeIn>

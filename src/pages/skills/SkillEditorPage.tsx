@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMatch, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FadeIn, Eyebrow, PillButton } from "@/components/bloom/primitives";
+import { WaveHierarchyBreadcrumb } from "@/components/waves/WaveHierarchyBreadcrumb";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -86,12 +87,20 @@ export function SkillEditorPage() {
     onError: (e) => toast(e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Erro ao salvar."),
   });
 
+  const breadcrumbs = useMemo(() => {
+    const root = { label: "Habilidades", to: "/habilidades" as const };
+    if (isNew) return [root, { label: "Nova habilidade" }];
+    const skillLabel = (title.trim() || data?.title || (isLoading ? "…" : "Habilidade")).trim();
+    return [root, { label: skillLabel }];
+  }, [isNew, title, data?.title, isLoading]);
+
   if (!isNew && !skillId) return null;
 
   return (
     <div className="max-w-2xl space-y-6">
       <FadeIn>
         <Eyebrow tone="garnet">Catálogo</Eyebrow>
+        <WaveHierarchyBreadcrumb items={breadcrumbs} />
         <h1 className="font-serif-display text-3xl text-bloom-aubergine mt-1">{isNew ? "Nova habilidade" : "Editar habilidade"}</h1>
         <p className="font-ui text-sm text-bloom-aubergine/65 mt-1">Slug em minúsculas e hífens (ex.: escuta-ativa).</p>
       </FadeIn>

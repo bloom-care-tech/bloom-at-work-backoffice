@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useMatch, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FadeIn, Eyebrow, PillButton } from "@/components/bloom/primitives";
+import { WaveHierarchyBreadcrumb } from "@/components/waves/WaveHierarchyBreadcrumb";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
@@ -99,7 +100,7 @@ export function SkillItemEditorPage() {
   const { skillId, itemId } = useParams<{ skillId: string; itemId: string }>();
   const id = isNew ? undefined : itemId;
 
-  const { data: skillMeta } = useQuery({
+  const { data: skillMeta, isLoading: skillMetaLoading } = useQuery({
     queryKey: ["skill", skillId],
     queryFn: () => fetchSkillById(skillId!),
     enabled: Boolean(skillId),
@@ -286,12 +287,28 @@ export function SkillItemEditorPage() {
     onError: (e) => toast(e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Erro ao salvar."),
   });
 
+  const breadcrumbs = useMemo(() => {
+    if (!skillId) return [];
+    const skillLabel = skillMeta?.title ?? (skillMetaLoading ? "…" : "Habilidade");
+    const itemsPath = `/habilidades/${skillId}/itens`;
+    const leaf = isNew
+      ? "Novo item"
+      : title.trim() || data?.title || (isLoading ? "…" : "Item");
+    return [
+      { label: "Habilidades", to: "/habilidades" as const },
+      { label: skillLabel, to: `/habilidades/${skillId}` as const },
+      { label: "Itens", to: itemsPath },
+      { label: leaf },
+    ];
+  }, [skillId, skillMeta?.title, skillMetaLoading, isNew, title, data?.title, isLoading]);
+
   if (!skillId || (!isNew && !itemId)) return null;
 
   return (
     <div className="max-w-2xl space-y-6">
       <FadeIn>
         <Eyebrow tone="garnet">Catálogo</Eyebrow>
+        <WaveHierarchyBreadcrumb items={breadcrumbs} />
         <h1 className="font-serif-display text-3xl text-bloom-aubergine mt-1">{isNew ? "Novo item" : "Editar item"}</h1>
         <p className="font-ui text-sm text-bloom-aubergine/65 mt-1">
           {skillMeta ? (

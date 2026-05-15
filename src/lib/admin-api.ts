@@ -671,14 +671,14 @@ export async function fetchDocumentsPage(
 
 export async function fetchDocumentsInCategory(categoryId: string, page = 1, limit = 200) {
   return apiFetch<{ items: DocumentDto[]; page: number; limit: number; total: number }>(
-    `/admin/categorias-documento/${encodeURIComponent(categoryId)}/documents${q({ page, limit })}`,
+    `/admin/categorias-documento/${encodeURIComponent(categoryId)}/documentos${q({ page, limit })}`,
     { auth: true },
   );
 }
 
 export async function reorderDocumentsInCategory(categoryId: string, ids: string[]) {
   return apiFetch<{ ok: true }>(
-    `/admin/categorias-documento/${encodeURIComponent(categoryId)}/documents/reorder`,
+    `/admin/categorias-documento/${encodeURIComponent(categoryId)}/documentos/reorder`,
     { method: "PATCH", auth: true, body: JSON.stringify({ ids }) },
   );
 }
@@ -707,7 +707,7 @@ export async function createDocumentInCategory(
   },
 ) {
   return apiFetch<{ id: string }>(
-    `/admin/categorias-documento/${encodeURIComponent(categoryId)}/documents`,
+    `/admin/categorias-documento/${encodeURIComponent(categoryId)}/documentos`,
     { method: "POST", auth: true, body: JSON.stringify(body) },
   );
 }

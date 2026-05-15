@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMatch, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FadeIn, Eyebrow, PillButton } from "@/components/bloom/primitives";
+import { WaveHierarchyBreadcrumb } from "@/components/waves/WaveHierarchyBreadcrumb";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
@@ -90,12 +91,20 @@ export function DocumentCategoryEditorPage() {
     onError: (e) => toast(e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Erro ao salvar."),
   });
 
+  const breadcrumbs = useMemo(() => {
+    const root = { label: "Mapa de documentos", to: "/mapa-documentos" as const };
+    if (isNew) return [root, { label: "Nova categoria" }];
+    const catLabel = (name.trim() || data?.name || (isLoading ? "…" : "Categoria")).trim();
+    return [root, { label: catLabel }];
+  }, [isNew, name, data?.name, isLoading]);
+
   if (!isNew && !categoryId) return null;
 
   return (
     <div className="max-w-2xl space-y-6">
       <FadeIn>
         <Eyebrow tone="garnet">Biblioteca</Eyebrow>
+        <WaveHierarchyBreadcrumb items={breadcrumbs} />
         <h1 className="font-serif-display text-3xl text-bloom-aubergine mt-1">
           {isNew ? "Nova categoria" : "Editar categoria"}
         </h1>

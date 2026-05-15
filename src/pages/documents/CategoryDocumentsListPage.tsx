@@ -3,10 +3,11 @@ import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, PencilSimple, Plus, Trash } from "@phosphor-icons/react";
 import { FadeIn, Eyebrow, PillButton } from "@/components/bloom/primitives";
+import { WaveHierarchyBreadcrumb } from "@/components/waves/WaveHierarchyBreadcrumb";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { ApiError } from "@/lib/auth/api-client";
-import { deleteDocument, fetchDocumentsInCategory, reorderDocumentsInCategory } from "@/lib/admin-api";
+import { deleteDocument, fetchDocumentCategory, fetchDocumentsInCategory, reorderDocumentsInCategory } from "@/lib/admin-api";
 
 function swapIds(ids: string[], i: number, j: number): string[] {
   const next = [...ids];
@@ -26,6 +27,12 @@ export function CategoryDocumentsListPage() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ["category-documents", categoryId],
     queryFn: () => fetchDocumentsInCategory(categoryId!, 1, 200),
+    enabled: Boolean(categoryId),
+  });
+
+  const { data: categoryMeta, isLoading: categoryLoading } = useQuery({
+    queryKey: ["document-category", categoryId],
+    queryFn: () => fetchDocumentCategory(categoryId!),
     enabled: Boolean(categoryId),
   });
 
@@ -68,12 +75,23 @@ export function CategoryDocumentsListPage() {
     applyReorder(swapIds(ids, index, j));
   };
 
+  const breadcrumbs = useMemo(() => {
+    if (!categoryId) return [];
+    const catLabel = categoryMeta?.name ?? (categoryLoading ? "…" : "Categoria");
+    return [
+      { label: "Mapa de documentos", to: "/mapa-documentos" as const },
+      { label: catLabel, to: `/mapa-documentos/${categoryId}` as const },
+      { label: "Documentos" },
+    ];
+  }, [categoryId, categoryMeta?.name, categoryLoading]);
+
   if (!categoryId) return null;
 
   return (
     <div className="max-w-5xl space-y-6">
       <FadeIn>
         <Eyebrow tone="garnet">Biblioteca</Eyebrow>
+        <WaveHierarchyBreadcrumb items={breadcrumbs} />
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mt-2">
           <div>
             <h1 className="font-serif-display text-3xl text-bloom-aubergine">Documentos da categoria</h1>

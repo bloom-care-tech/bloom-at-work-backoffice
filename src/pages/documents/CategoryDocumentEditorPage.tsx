@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMatch, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FadeIn, Eyebrow, PillButton } from "@/components/bloom/primitives";
+import { WaveHierarchyBreadcrumb } from "@/components/waves/WaveHierarchyBreadcrumb";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { ApiError } from "@/lib/auth/api-client";
 import {
   createDocumentInCategory,
   fetchDocument,
+  fetchDocumentCategory,
   updateDocument,
   uploadEditorialMediaAsset,
 } from "@/lib/admin-api";
@@ -31,6 +33,12 @@ export function CategoryDocumentEditorPage() {
     queryKey: ["document", id],
     queryFn: () => fetchDocument(id!),
     enabled: Boolean(id),
+  });
+
+  const { data: categoryMeta, isLoading: categoryLoading } = useQuery({
+    queryKey: ["document-category", categoryId],
+    queryFn: () => fetchDocumentCategory(categoryId!),
+    enabled: Boolean(categoryId),
   });
 
   const [name, setName] = useState("");
@@ -106,6 +114,21 @@ export function CategoryDocumentEditorPage() {
     }
   }
 
+  const breadcrumbs = useMemo(() => {
+    if (!categoryId) return [];
+    const catLabel = categoryMeta?.name ?? (categoryLoading ? "…" : "Categoria");
+    const docsPath = `/mapa-documentos/${categoryId}/documentos`;
+    const leaf = isNew
+      ? "Novo documento"
+      : name.trim() || data?.name || (isLoading ? "…" : "Documento");
+    return [
+      { label: "Mapa de documentos", to: "/mapa-documentos" as const },
+      { label: catLabel, to: `/mapa-documentos/${categoryId}` as const },
+      { label: "Documentos", to: docsPath },
+      { label: leaf },
+    ];
+  }, [categoryId, categoryMeta?.name, categoryLoading, isNew, name, data?.name, isLoading]);
+
   if (!categoryId) return null;
   if (!isNew && !documentId) return null;
 
@@ -113,6 +136,7 @@ export function CategoryDocumentEditorPage() {
     <div className="max-w-2xl space-y-6">
       <FadeIn>
         <Eyebrow tone="garnet">Biblioteca</Eyebrow>
+        <WaveHierarchyBreadcrumb items={breadcrumbs} />
         <h1 className="font-serif-display text-3xl text-bloom-aubergine mt-1">{isNew ? "Novo documento" : "Editar documento"}</h1>
         <p className="font-ui text-sm text-bloom-aubergine/65 mt-1">
           Indique uma URL https ou envie um PDF — o mesmo armazenamento público usado nos conteúdos de onda.

@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, ListBullets, PencilSimple, Plus, Trash } from "@phosphor-icons/react";
 import { FadeIn, Eyebrow, PillButton } from "@/components/bloom/primitives";
+import { WaveHierarchyBreadcrumb } from "@/components/waves/WaveHierarchyBreadcrumb";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +12,7 @@ import { ApiError } from "@/lib/auth/api-client";
 import {
   createWaveModule,
   deleteWaveModule,
+  fetchWave,
   fetchWaveModules,
   reorderWaveModules,
   updateWaveModule,
@@ -95,12 +97,29 @@ export function WaveModulesListPage() {
     applyReorder(swapIds(ids, index, j));
   };
 
+  const { data: waveMeta, isLoading: waveMetaLoading } = useQuery({
+    queryKey: ["wave", ondaId],
+    queryFn: () => fetchWave(ondaId!),
+    enabled: Boolean(ondaId),
+  });
+
+  const breadcrumbs = useMemo(() => {
+    if (!ondaId) return [];
+    const waveLabel = waveMeta?.title ?? (waveMetaLoading ? "…" : "Onda");
+    return [
+      { label: "Ondas", to: "/ondas" as const },
+      { label: waveLabel, to: `/ondas/${ondaId}` as const },
+      { label: "Módulos" },
+    ];
+  }, [ondaId, waveMeta?.title, waveMetaLoading]);
+
   if (!ondaId) return null;
 
   return (
     <div className="max-w-5xl space-y-6">
       <FadeIn>
         <Eyebrow tone="garnet">Trilha</Eyebrow>
+        <WaveHierarchyBreadcrumb items={breadcrumbs} />
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mt-2">
           <div>
             <h1 className="font-serif-display text-3xl text-bloom-aubergine">Módulos da onda</h1>

@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, PencilSimple, Plus, Trash } from "@phosphor-icons/react";
 import { FadeIn, Eyebrow, PillButton } from "@/components/bloom/primitives";
+import { WaveHierarchyBreadcrumb } from "@/components/waves/WaveHierarchyBreadcrumb";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { ApiError } from "@/lib/auth/api-client";
@@ -62,12 +63,23 @@ export function SkillItemsListPage() {
     applyReorder(swapIds(ids, index, j));
   };
 
+  const breadcrumbs = useMemo(() => {
+    if (!skillId) return [];
+    const skillLabel = data?.title ?? (isLoading ? "…" : "Habilidade");
+    return [
+      { label: "Habilidades", to: "/habilidades" as const },
+      { label: skillLabel, to: `/habilidades/${skillId}` as const },
+      { label: "Itens" },
+    ];
+  }, [skillId, data?.title, isLoading]);
+
   if (!skillId) return null;
 
   return (
     <div className="max-w-5xl space-y-6">
       <FadeIn>
         <Eyebrow tone="garnet">Catálogo</Eyebrow>
+        <WaveHierarchyBreadcrumb items={breadcrumbs} />
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mt-2">
           <div>
             <h1 className="font-serif-display text-3xl text-bloom-aubergine">Itens da habilidade</h1>

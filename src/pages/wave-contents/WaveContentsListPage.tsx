@@ -3,10 +3,11 @@ import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, PencilSimple, Plus, Trash } from "@phosphor-icons/react";
 import { FadeIn, Eyebrow, PillButton } from "@/components/bloom/primitives";
+import { WaveHierarchyBreadcrumb } from "@/components/waves/WaveHierarchyBreadcrumb";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { ApiError } from "@/lib/auth/api-client";
-import { deleteWaveContent, fetchWaveContentsPage, reorderWaveContents } from "@/lib/admin-api";
+import { deleteWaveContent, fetchWave, fetchWaveContentsPage, fetchWaveModules, reorderWaveContents } from "@/lib/admin-api";
 import { waveContentKindLabel } from "@/lib/wave-content-kinds";
 
 function swapIds(ids: string[], i: number, j: number): string[] {
@@ -62,12 +63,39 @@ export function WaveContentsListPage() {
     applyReorder(swapIds(ids, index, j));
   };
 
+  const { data: waveMeta, isLoading: waveMetaLoading } = useQuery({
+    queryKey: ["wave", ondaId],
+    queryFn: () => fetchWave(ondaId!),
+    enabled: Boolean(ondaId),
+  });
+
+  const { data: modules, isLoading: modulesLoading } = useQuery({
+    queryKey: ["wave-modules", ondaId],
+    queryFn: () => fetchWaveModules(ondaId!),
+    enabled: Boolean(ondaId),
+  });
+
+  const moduleTitle = useMemo(() => modules?.find((m) => m.id === moduloId)?.title, [modules, moduloId]);
+
+  const breadcrumbs = useMemo(() => {
+    if (!ondaId || !moduloId) return [];
+    const waveLabel = waveMeta?.title ?? (waveMetaLoading ? "…" : "Onda");
+    const modLabel = moduleTitle ?? (modulesLoading ? "…" : "Módulo");
+    return [
+      { label: "Ondas", to: "/ondas" as const },
+      { label: waveLabel, to: `/ondas/${ondaId}` as const },
+      { label: modLabel, to: `/ondas/${ondaId}/modulos` as const },
+      { label: "Conteúdos" },
+    ];
+  }, [ondaId, moduloId, waveMeta?.title, waveMetaLoading, moduleTitle, modulesLoading]);
+
   if (!ondaId || !moduloId) return null;
 
   return (
     <div className="max-w-5xl space-y-6">
       <FadeIn>
         <Eyebrow tone="garnet">Trilha</Eyebrow>
+        <WaveHierarchyBreadcrumb items={breadcrumbs} />
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mt-2">
           <div>
             <h1 className="font-serif-display text-3xl text-bloom-aubergine">Conteúdos da onda</h1>

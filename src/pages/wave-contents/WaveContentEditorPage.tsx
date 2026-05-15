@@ -3,6 +3,7 @@ import { useMatch, useNavigate, useParams, Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Eye, Plus, Trash } from "@phosphor-icons/react";
 import { FadeIn, Eyebrow, PillButton } from "@/components/bloom/primitives";
+import { WaveHierarchyBreadcrumb } from "@/components/waves/WaveHierarchyBreadcrumb";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,9 @@ import { ApiError } from "@/lib/auth/api-client";
 import {
   createWaveContent,
   fetchEditorialExperts,
+  fetchWave,
   fetchWaveContent,
+  fetchWaveModules,
   updateWaveContent,
   uploadEditorialMediaAsset,
 } from "@/lib/admin-api";
@@ -118,6 +121,20 @@ export function WaveContentEditorPage() {
     queryFn: () => fetchWaveContent(id!),
     enabled: Boolean(id),
   });
+
+  const { data: waveMeta, isLoading: waveMetaLoading } = useQuery({
+    queryKey: ["wave", ondaId],
+    queryFn: () => fetchWave(ondaId!),
+    enabled: Boolean(ondaId),
+  });
+
+  const { data: modules, isLoading: modulesLoading } = useQuery({
+    queryKey: ["wave-modules", ondaId],
+    queryFn: () => fetchWaveModules(ondaId!),
+    enabled: Boolean(ondaId),
+  });
+
+  const moduleTitle = useMemo(() => modules?.find((m) => m.id === moduloId)?.title, [modules, moduloId]);
 
   const [kind, setKind] = useState<WaveContentKindApi>("article");
   const [title, setTitle] = useState("");
@@ -260,6 +277,34 @@ export function WaveContentEditorPage() {
     toolkitExtras,
   ]);
 
+  const breadcrumbs = useMemo(() => {
+    if (!ondaId || !moduloId) return [];
+    const waveLabel = waveMeta?.title ?? (waveMetaLoading ? "…" : "Onda");
+    const modLabel = moduleTitle ?? (modulesLoading ? "…" : "Módulo");
+    const contentsPath = `/ondas/${ondaId}/modulos/${moduloId}/conteudos`;
+    const leaf = isNew
+      ? "Novo conteúdo"
+      : title.trim() || data?.title || (isLoading ? "…" : "Conteúdo");
+    return [
+      { label: "Ondas", to: "/ondas" as const },
+      { label: waveLabel, to: `/ondas/${ondaId}` as const },
+      { label: modLabel, to: `/ondas/${ondaId}/modulos` as const },
+      { label: "Conteúdos", to: contentsPath },
+      { label: leaf },
+    ];
+  }, [
+    ondaId,
+    moduloId,
+    waveMeta?.title,
+    waveMetaLoading,
+    moduleTitle,
+    modulesLoading,
+    isNew,
+    title,
+    data?.title,
+    isLoading,
+  ]);
+
   const save = useMutation({
     mutationFn: async () => {
       let payload: Record<string, unknown>;
@@ -348,6 +393,7 @@ export function WaveContentEditorPage() {
     <div className="space-y-6">
       <FadeIn>
         <Eyebrow tone="garnet">Trilha</Eyebrow>
+        <WaveHierarchyBreadcrumb items={breadcrumbs} />
         <h1 className="font-serif-display text-3xl text-bloom-aubergine mt-1">{isNew ? "Novo conteúdo" : "Editar conteúdo"}</h1>
         <p className="font-ui text-sm text-bloom-aubergine/65 mt-1">
           Artigos: corpo em HTML (TinyMCE — inclui modo código na barra). Vídeo: URL. Áudio/PDF: URL externa ou envio para o servidor; referências: tabela; toolkit: título do bloco e lista de itens (campos{" "}
