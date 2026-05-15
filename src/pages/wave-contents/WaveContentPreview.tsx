@@ -4,13 +4,47 @@ import {
   FilePdf,
   Flask,
   Headphones,
+  Quotes,
   Toolbox,
+  User,
   YoutubeLogo,
 } from "@phosphor-icons/react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AudioPlayer } from "@bloom-at-work/components/trilha/AudioPlayer";
+import { useHostedMediaUrl } from "@/hooks/use-hosted-media-url";
 import { WAVE_ARTICLE_BODY_PROSE_CLASS } from "@/lib/wave-article-body-class";
 import { waveContentKindLabel, type WaveContentKindApi } from "@/lib/wave-content-kinds";
+
+function PreviewAudioPlayer({ titulo, rawSrc }: { titulo: string; rawSrc?: string }) {
+  const { src, loading, error } = useHostedMediaUrl(rawSrc);
+  if (loading) {
+    return <p className="font-ui text-sm text-bloom-aubergine/55 italic">A preparar áudio…</p>;
+  }
+  if (error) {
+    return <p className="font-ui text-sm text-bloom-aubergine/55">Áudio indisponível.</p>;
+  }
+  return <AudioPlayer titulo={titulo} src={src} />;
+}
+
+function PreviewPdfLink({ rawHref }: { rawHref: string }) {
+  const { src, loading, error } = useHostedMediaUrl(rawHref);
+  if (loading) {
+    return <p className="font-ui text-sm text-bloom-aubergine/55 italic">A preparar PDF…</p>;
+  }
+  if (error || !src) {
+    return <p className="font-ui text-sm text-bloom-aubergine/55">PDF indisponível.</p>;
+  }
+  return (
+    <a
+      href={src}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-2 font-ui text-sm bg-bloom-aubergine text-bloom-cream px-4 py-2.5 rounded-full hover:bg-bloom-garnet transition-colors"
+    >
+      Abrir PDF
+    </a>
+  );
+}
 
 const PURIFY_OPTS: DOMPurify.Config = {
   USE_PROFILES: { html: true },
@@ -91,7 +125,15 @@ function shouldShowDialogDescription(kind: WaveContentKindApi, payload: Record<s
   return true;
 }
 
-export type WaveContentPreviewProps = {
+export type ArticleExpertPreviewOption = {
+  id: string;
+  name: string;
+  specialty: string;
+  bio: string;
+  photoUrl: string | null;
+};
+
+type WaveContentPreviewBaseProps = {
   kind: WaveContentKindApi;
   title: string;
   payload: Record<string, unknown> | null;
@@ -99,19 +141,46 @@ export type WaveContentPreviewProps = {
   isExercise: boolean;
   isNew: boolean;
   published: boolean;
+  /** Active specialists for resolving `payload.expertId` in article preview. */
+  articleExperts?: ArticleExpertPreviewOption[];
 };
 
-export type WaveContentPreviewDialogProps = WaveContentPreviewProps & {
+export type WaveContentPreviewProps = WaveContentPreviewBaseProps;
+
+export type WaveContentPreviewDialogProps = WaveContentPreviewBaseProps & {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
+
+function resolveArticleExpert(
+  payload: Record<string, unknown>,
+  articleExperts: ArticleExpertPreviewOption[] | undefined,
+): ArticleExpertPreviewOption | undefined {
+  const eid = typeof payload.expertId === "string" ? payload.expertId.trim() : "";
+  return eid ? articleExperts?.find((x) => x.id === eid) : undefined;
+}
+
+/** Quote footer: payload `author`, else specialist as "Nome, Especialidade". */
+function quoteAttributionFromPayload(
+  payload: Record<string, unknown>,
+  articleExperts: ArticleExpertPreviewOption[] | undefined,
+): string {
+  const explicit = typeof payload.author === "string" ? payload.author.trim() : "";
+  if (explicit) return explicit;
+  const expert = resolveArticleExpert(payload, articleExperts);
+  if (!expert?.name?.trim()) return "";
+  return expert.specialty?.trim()
+    ? `${expert.name.trim()}, ${expert.specialty.trim()}`
+    : expert.name.trim();
+}
 
 function PreviewBody({
   kind,
   title,
   payload,
   error,
-}: Pick<WaveContentPreviewProps, "kind" | "title" | "payload" | "error">) {
+  articleExperts,
+}: Pick<WaveContentPreviewProps, "kind" | "title" | "payload" | "error" | "articleExperts">) {
   return (
     <>
       {error && (
@@ -125,6 +194,32 @@ function PreviewBody({
           {payloadDescription(payload).trim() && htmlHasVisibleText(typeof payload.bodyHtml === "string" ? payload.bodyHtml : "") && (
             <p className="font-ui text-sm text-bloom-aubergine/75 leading-relaxed">{payloadDescription(payload)}</p>
           )}
+          {(() => {
+            const expert = resolveArticleExpert(payload, articleExperts);
+            if (!expert) return null;
+            const foto = expert.photoUrl?.trim();
+            return (
+              <div className="flex gap-4 items-start rounded-2xl border border-bloom-aubergine/15 bg-bloom-cream-deep/40 p-4">
+                {foto ? (
+                  <img src={foto} alt="" className="w-16 h-16 rounded-full object-cover shrink-0" />
+                ) : (
+                  <div
+                    className="w-16 h-16 rounded-full bg-bloom-aubergine/8 shrink-0 flex items-center justify-center text-bloom-aubergine/35"
+                    aria-hidden
+                  >
+                    <User size={28} weight="duotone" />
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="font-serif-display text-base text-bloom-aubergine leading-tight">{expert.name}</p>
+                  <p className="font-ui text-[10px] uppercase tracking-[0.18em] text-bloom-garnet mt-0.5">{expert.specialty}</p>
+                  {expert.bio?.trim() ? (
+                    <p className="font-ui text-[13px] text-bloom-aubergine/75 leading-relaxed mt-2">{expert.bio.trim()}</p>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })()}
           {typeof payload.bodyHtml === "string" && htmlHasVisibleText(payload.bodyHtml) ? (
             <div
               className={WAVE_ARTICLE_BODY_PROSE_CLASS}
@@ -133,6 +228,22 @@ function PreviewBody({
           ) : (
             <p className="font-ui text-sm text-bloom-aubergine/50 italic">Corpo vazio ou sem texto visível no HTML.</p>
           )}
+          {typeof payload.quote === "string" && payload.quote.trim()
+            ? (() => {
+                const attribution = quoteAttributionFromPayload(payload, articleExperts);
+                return (
+                  <blockquote className="relative mt-4 rounded-2xl bg-bloom-aubergine text-bloom-cream px-6 py-5">
+                    <Quotes size={22} weight="fill" className="text-bloom-cream/50 mb-2" />
+                    <p className="font-serif-display italic text-lg leading-snug">{payload.quote.trim()}</p>
+                    {attribution ? (
+                      <footer className="mt-3 text-xs uppercase tracking-[0.18em] text-bloom-cream/60 font-ui">
+                        — {attribution}
+                      </footer>
+                    ) : null}
+                  </blockquote>
+                );
+              })()
+            : null}
         </div>
       )}
 
@@ -166,9 +277,9 @@ function PreviewBody({
           {payloadDescription(payload).trim() && (
             <p className="font-ui text-sm text-bloom-aubergine/75 leading-relaxed">{payloadDescription(payload)}</p>
           )}
-          <AudioPlayer
+          <PreviewAudioPlayer
             titulo={title.trim() || "(sem título)"}
-            src={
+            rawSrc={
               typeof payload.audioUrl === "string" && payload.audioUrl.trim()
                 ? payload.audioUrl.trim()
                 : undefined
@@ -183,14 +294,7 @@ function PreviewBody({
             <p className="font-ui text-sm text-bloom-aubergine/75 leading-relaxed">{payloadDescription(payload)}</p>
           )}
           {typeof payload.pdfUrl === "string" && payload.pdfUrl.trim() ? (
-            <a
-              href={payload.pdfUrl.trim()}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 font-ui text-sm bg-bloom-aubergine text-bloom-cream px-4 py-2.5 rounded-full hover:bg-bloom-garnet transition-colors"
-            >
-              Abrir PDF
-            </a>
+            <PreviewPdfLink rawHref={payload.pdfUrl.trim()} />
           ) : (
             <p className="font-ui text-sm text-bloom-aubergine/50 italic">Sem pdfUrl.</p>
           )}
@@ -288,6 +392,7 @@ export function WaveContentPreviewDialog({
   isExercise,
   isNew,
   published,
+  articleExperts,
 }: WaveContentPreviewDialogProps) {
   const kindLabel = waveContentKindLabel(kind);
   const Icon = kindMetaIcon(kind);
@@ -318,7 +423,13 @@ export function WaveContentPreviewDialog({
           )}
         </DialogHeader>
         <div className="mt-2">
-          <PreviewBody kind={kind} title={title} payload={payload} error={error} />
+          <PreviewBody
+            kind={kind}
+            title={title}
+            payload={payload}
+            error={error}
+            articleExperts={articleExperts}
+          />
         </div>
       </DialogContent>
     </Dialog>

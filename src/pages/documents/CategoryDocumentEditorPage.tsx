@@ -198,7 +198,7 @@ export function CategoryDocumentEditorPage() {
                   {mediaUploading ? "A enviar…" : "Enviar ficheiro"}
                 </Button>
                 <p className="font-ui text-xs text-bloom-aubergine/55">
-                  Após o envio, o campo acima é preenchido com o endereço público (<code className="text-[11px]">pdfUrl</code>).
+                  Após o envio, o campo acima guarda o URL interno do ficheiro (<code className="text-[11px]">pdfUrl</code>); no app o PDF abre via acesso assinado.
                 </p>
               </div>
             </div>
