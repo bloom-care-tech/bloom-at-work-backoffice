@@ -122,6 +122,17 @@ export async function createPlatformAdminUser(body: {
   return apiFetch<{ id: string }>(`/admin/usuarios`, { method: "POST", auth: true, body: JSON.stringify(body) });
 }
 
+export async function createCompanyUser(body: {
+  email: string;
+  password: string;
+  companyId: string;
+  role: string;
+  name?: string | null;
+  displayName?: string | null;
+}) {
+  return apiFetch<{ id: string }>(`/admin/usuarios`, { method: "POST", auth: true, body: JSON.stringify(body) });
+}
+
 export async function fetchUser(id: string) {
   return apiFetch<UserListItemDto>(`/admin/usuarios/${id}`, { auth: true });
 }

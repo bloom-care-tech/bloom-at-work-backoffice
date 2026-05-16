@@ -12,6 +12,7 @@ import { CompanyEditorPage } from "@/pages/companies/CompanyEditorPage";
 import { UsersListPage } from "@/pages/users/UsersListPage";
 import { UserEditorPage } from "@/pages/users/UserEditorPage";
 import { NewPlatformAdminPage } from "@/pages/users/NewPlatformAdminPage";
+import { NewCompanyUserPage } from "@/pages/users/NewCompanyUserPage";
 import { AccessLinksListPage } from "@/pages/access-links/AccessLinksListPage";
 import { NewAccessLinkPage } from "@/pages/access-links/NewAccessLinkPage";
 import { QuotesListPage } from "@/pages/quotes/QuotesListPage";
@@ -51,6 +52,7 @@ const App = () => (
               <Route path="empresas/nova" element={<CompanyEditorPage />} />
               <Route path="empresas/:companyId" element={<CompanyEditorPage />} />
               <Route path="usuarios" element={<UsersListPage section="company" />} />
+              <Route path="usuarios/novo" element={<NewCompanyUserPage />} />
               <Route path="usuarios/:userId" element={<UserEditorPage />} />
               <Route path="administradores" element={<UsersListPage section="platform" />} />
               <Route path="administradores/novo" element={<NewPlatformAdminPage />} />

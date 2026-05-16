@@ -34,6 +34,7 @@ export default defineConfig({
       "/auth": { target: "http://127.0.0.1:3000", changeOrigin: true },
       "/api": { target: "http://127.0.0.1:3000", changeOrigin: true },
       "/admin": { target: "http://127.0.0.1:3000", changeOrigin: true },
+      "/media": { target: "http://127.0.0.1:3000", changeOrigin: true },
     },
   },
   plugins: [react(), sentryPlugin].filter(Boolean),

@@ -86,18 +86,16 @@ export function UsersListPage({ section }: { section: UsersListSection }) {
             </h1>
             <p className="font-ui text-sm text-bloom-aubergine/65 mt-1">
               {isCompany
-                ? "Colaboradores e líderes vinculados a empresas. Novos cadastros entram pelos links de acesso."
+                ? "Colaboradores e líderes vinculados a empresas."
                 : "Contas com perfil admin da operadora Bloom. O e-mail não pode ser alterado aqui."}
             </p>
           </div>
-          {!isCompany && (
-            <Button className="rounded-full bg-bloom-garnet hover:bg-bloom-garnet/90 shrink-0" asChild>
-              <Link to="/administradores/novo">
-                <Plus size={18} className="mr-2 inline" weight="bold" />
-                Adicionar administrador
-              </Link>
-            </Button>
-          )}
+          <Button className="rounded-full bg-bloom-garnet hover:bg-bloom-garnet/90 shrink-0" asChild>
+            <Link to={isCompany ? "/usuarios/novo" : "/administradores/novo"}>
+              <Plus size={18} className="mr-2 inline" weight="bold" />
+              {isCompany ? "Adicionar usuário" : "Adicionar administrador"}
+            </Link>
+          </Button>
         </div>
       </FadeIn>
       <FadeIn delay={0.05}>
