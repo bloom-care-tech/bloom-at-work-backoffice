@@ -4,6 +4,7 @@ import {
   FilePdf,
   Flask,
   Headphones,
+  Lightning,
   Quotes,
   Toolbox,
   User,
@@ -86,6 +87,8 @@ function kindMetaIcon(kind: WaveContentKindApi) {
       return Toolbox;
     case "scientificReferences":
       return Flask;
+    case "exercise":
+      return Lightning;
     default:
       return BookOpen;
   }
@@ -122,6 +125,9 @@ function shouldShowDialogDescription(kind: WaveContentKindApi, payload: Record<s
     const html = typeof payload.bodyHtml === "string" ? payload.bodyHtml : "";
     return !htmlHasVisibleText(html);
   }
+  if (kind === "exercise") {
+    return false;
+  }
   return true;
 }
 
@@ -138,7 +144,6 @@ type WaveContentPreviewBaseProps = {
   title: string;
   payload: Record<string, unknown> | null;
   error: string | null;
-  isExercise: boolean;
   isNew: boolean;
   published: boolean;
   /** Active specialists for resolving `payload.expertId` in article preview. */
@@ -345,6 +350,41 @@ function PreviewBody({
         </div>
       )}
 
+      {payload && kind === "exercise" && (
+        <div className="space-y-3">
+          {payloadDescription(payload).trim() && (
+            <p className="font-ui text-sm text-bloom-aubergine/75 leading-relaxed">{payloadDescription(payload)}</p>
+          )}
+          {typeof payload.externalFormUrl === "string" && payload.externalFormUrl.trim() ? (
+            isHttpUrl(payload.externalFormUrl.trim()) ? (
+              payload.displayMode === "new_tab" ? (
+                <a
+                  href={payload.externalFormUrl.trim()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 font-ui text-sm bg-bloom-aubergine text-bloom-cream px-4 py-2.5 rounded-full hover:bg-bloom-garnet transition-colors"
+                >
+                  Abrir formulário
+                </a>
+              ) : (
+                <div className="aspect-[4/5] md:aspect-[16/10] w-full overflow-hidden rounded-lg bg-bloom-aubergine/5 border border-bloom-aubergine/10">
+                  <iframe
+                    src={payload.externalFormUrl.trim()}
+                    title={title}
+                    className="w-full h-full min-h-[320px] border-0"
+                    allow="camera; microphone; autoplay; encrypted-media; fullscreen"
+                  />
+                </div>
+              )
+            ) : (
+              <p className="font-ui text-xs text-bloom-aubergine/60 break-all">URL: {payload.externalFormUrl}</p>
+            )
+          ) : (
+            <p className="font-ui text-sm text-bloom-aubergine/50 italic">Sem externalFormUrl.</p>
+          )}
+        </div>
+      )}
+
       {payload && kind === "toolkit" && (() => {
         const tk = payload.toolkit;
         let sectionTitulo = "";
@@ -389,7 +429,6 @@ export function WaveContentPreviewDialog({
   title,
   payload,
   error,
-  isExercise,
   isNew,
   published,
   articleExperts,
@@ -410,7 +449,6 @@ export function WaveContentPreviewDialog({
               {kindLabel}
               {isNew && <span className="ml-2 text-bloom-garnet">• NOVO</span>}
               {!published && <span className="ml-2 text-bloom-aubergine/50">• RASCUNHO</span>}
-              {isExercise && <span className="ml-2 text-bloom-garnet">• EXERCÍCIO</span>}
             </span>
           </div>
           <DialogTitle className="font-serif-display text-2xl md:text-3xl text-bloom-aubergine leading-tight text-left">

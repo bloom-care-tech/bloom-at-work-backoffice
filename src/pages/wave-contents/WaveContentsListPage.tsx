@@ -99,7 +99,7 @@ export function WaveContentsListPage() {
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mt-2">
           <div>
             <h1 className="font-serif-display text-3xl text-bloom-aubergine">Conteúdos da onda</h1>
-            <p className="font-ui text-sm text-bloom-aubergine/65 mt-1">Qualquer tipo pode ser marcado como exercício. Inclua referências científicas como tipo próprio. Publique para aparecer no app.</p>
+            <p className="font-ui text-sm text-bloom-aubergine/65 mt-1">Exercícios usam formulário externo (Typeform, etc.). Inclua referências científicas como tipo próprio. Publique para aparecer no app.</p>
           </div>
           <div className="flex gap-2 flex-wrap">
             <PillButton asLink={`/ondas/${ondaId}/modulos`} variant="ghost-aubergine">
@@ -133,7 +133,6 @@ export function WaveContentsListPage() {
                       <td className="px-4 py-3 text-bloom-aubergine/50">{index + 1}</td>
                       <td className="px-4 py-3 font-medium">
                         {waveContentKindLabel(row.kind)}
-                        {row.isExercise ? <span className="text-bloom-garnet"> · Exercício</span> : null}
                       </td>
                       <td className="px-4 py-3">{row.title}</td>
                       <td className="px-4 py-3">{row.publishedAt ? "Sim" : "Não"}</td>

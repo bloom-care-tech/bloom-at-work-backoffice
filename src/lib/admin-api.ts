@@ -294,8 +294,6 @@ export interface WaveContentDto {
   moduleId: string;
   sortOrder: number;
   kind: string;
-  /** Absent on stale clients; coerce with `Boolean(...)`. */
-  isExercise?: boolean;
   title: string;
   payload: Record<string, unknown>;
   isNew: boolean;
@@ -372,7 +370,6 @@ export async function createWaveContent(
     kind: string;
     title: string;
     payload: Record<string, unknown>;
-    isExercise?: boolean;
     isNew?: boolean;
     publishedAt?: string | null;
   },
@@ -394,7 +391,6 @@ export async function updateWaveContent(
     kind: string;
     title: string;
     payload: Record<string, unknown>;
-    isExercise: boolean;
     isNew: boolean;
     publishedAt: string | null;
   }>,

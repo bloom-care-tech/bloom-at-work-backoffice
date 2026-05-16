@@ -61,6 +61,9 @@ function buildPayload(
     toolkitSectionTitulo: string;
     toolkitItens: string[];
     toolkitExtras: Record<string, unknown>;
+    exerciseFormUrl: string;
+    exerciseDescription: string;
+    exerciseDisplayMode: "iframe" | "new_tab";
   },
 ): Record<string, unknown> {
   switch (kind) {
@@ -97,6 +100,14 @@ function buildPayload(
         kind: "toolkit",
         titulo,
         toolkit: { titulo: sectionTitulo, itens },
+      };
+    }
+    case "exercise": {
+      const d = ctx.exerciseDescription.trim();
+      return {
+        externalFormUrl: ctx.exerciseFormUrl.trim(),
+        displayMode: ctx.exerciseDisplayMode,
+        ...(d ? { description: d } : {}),
       };
     }
     default:
@@ -143,7 +154,9 @@ export function WaveContentEditorPage() {
     queryFn: () => fetchEditorialExperts(true),
     enabled: kind === "article",
   });
-  const [isExercise, setIsExercise] = useState(false);
+  const [exerciseFormUrl, setExerciseFormUrl] = useState("");
+  const [exerciseDescription, setExerciseDescription] = useState("");
+  const [exerciseDisplayMode, setExerciseDisplayMode] = useState<"iframe" | "new_tab">("iframe");
   const [isNewFlag, setIsNewFlag] = useState(false);
   const [published, setPublished] = useState(true);
 
@@ -202,6 +215,11 @@ export function WaveContentEditorPage() {
       setToolkitItens([""]);
       setToolkitExtras({});
     }
+    if (kind === "exercise") {
+      setExerciseFormUrl("");
+      setExerciseDescription("");
+      setExerciseDisplayMode("iframe");
+    }
   }, [kind, isNew]);
 
   useLayoutEffect(() => {
@@ -210,7 +228,6 @@ export function WaveContentEditorPage() {
     const p = payloadRecordFromUnknown(data.payload);
     setKind(k);
     setTitle(data.title);
-    setIsExercise(Boolean(data.isExercise));
     setIsNewFlag(data.isNew);
     setPublished(Boolean(data.publishedAt));
 
@@ -232,6 +249,10 @@ export function WaveContentEditorPage() {
       setToolkitSectionTitulo(toolkitSectionTituloFromPayload(p));
       setToolkitItens(toolkitItensFromPayload(p));
       setToolkitExtras(toolkitExtrasFromPayload(p));
+    } else if (k === "exercise") {
+      setExerciseFormUrl(typeof p.externalFormUrl === "string" ? p.externalFormUrl : "");
+      setExerciseDescription(mediaDescriptionFromPayload(p));
+      setExerciseDisplayMode(p.displayMode === "new_tab" ? "new_tab" : "iframe");
     }
   }, [data]);
 
@@ -251,6 +272,9 @@ export function WaveContentEditorPage() {
         toolkitSectionTitulo,
         toolkitItens,
         toolkitExtras,
+        exerciseFormUrl,
+        exerciseDescription,
+        exerciseDisplayMode,
       });
       return { ok: true as const, payload, error: null as string | null };
     } catch (e) {
@@ -275,6 +299,9 @@ export function WaveContentEditorPage() {
     toolkitSectionTitulo,
     toolkitItens,
     toolkitExtras,
+    exerciseFormUrl,
+    exerciseDescription,
+    exerciseDisplayMode,
   ]);
 
   const breadcrumbs = useMemo(() => {
@@ -323,6 +350,9 @@ export function WaveContentEditorPage() {
           toolkitSectionTitulo,
           toolkitItens,
           toolkitExtras,
+          exerciseFormUrl,
+          exerciseDescription,
+          exerciseDisplayMode,
         });
       } catch (e) {
         throw e instanceof Error ? e : new Error("Invalid payload.");
@@ -334,13 +364,15 @@ export function WaveContentEditorPage() {
       if ((kind === "audio" || kind === "pdf") && !mediaUrl.trim()) {
         throw new Error("Informe uma URL externa ou envie um ficheiro.");
       }
+      if (kind === "exercise" && !exerciseFormUrl.trim()) {
+        throw new Error("Informe a URL HTTPS do formulário externo.");
+      }
       const publishedAt = published ? new Date().toISOString() : null;
       if (id) {
         await updateWaveContent(id, {
           kind,
           title: title.trim(),
           payload,
-          isExercise,
           isNew: isNewFlag,
           publishedAt,
         });
@@ -349,7 +381,6 @@ export function WaveContentEditorPage() {
           kind,
           title: title.trim(),
           payload,
-          isExercise,
           isNew: isNewFlag,
           publishedAt,
         });
@@ -396,7 +427,7 @@ export function WaveContentEditorPage() {
         <WaveHierarchyBreadcrumb items={breadcrumbs} />
         <h1 className="font-serif-display text-3xl text-bloom-aubergine mt-1">{isNew ? "Novo conteúdo" : "Editar conteúdo"}</h1>
         <p className="font-ui text-sm text-bloom-aubergine/65 mt-1">
-          Artigos: corpo em HTML (TinyMCE — inclui modo código na barra). Vídeo: URL. Áudio/PDF: URL externa ou envio para o servidor; referências: tabela; toolkit: título do bloco e lista de itens (campos{" "}
+          Artigos: corpo em HTML (TinyMCE). Exercício: URL HTTPS do formulário (Typeform, Tally, etc.). Vídeo: URL. Áudio/PDF: URL ou envio; referências: tabela; toolkit: lista de itens (campos{" "}
           <code className="text-[11px]">kind</code>, <code className="text-[11px]">titulo</code>, <code className="text-[11px]">toolkit</code>
           ).
         </p>
@@ -741,11 +772,49 @@ export function WaveContentEditorPage() {
               </div>
             )}
 
+            {kind === "exercise" && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="font-ui text-bloom-aubergine/80">URL do formulário (HTTPS)</Label>
+                  <input
+                    className={inputCls}
+                    value={exerciseFormUrl}
+                    onChange={(e) => setExerciseFormUrl(e.target.value)}
+                    placeholder="https://form.typeform.com/to/…"
+                  />
+                  <p className="font-ui text-xs text-bloom-aubergine/55">
+                    Gravado como <code className="text-[11px]">externalFormUrl</code>. Use o link de compartilhamento do Typeform ou equivalente.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="font-ui text-bloom-aubergine/80">Descrição (opcional)</Label>
+                  <textarea
+                    className={`${inputCls} min-h-[88px] resize-y`}
+                    value={exerciseDescription}
+                    onChange={(e) => setExerciseDescription(e.target.value)}
+                    placeholder="Contexto curto antes do formulário no app."
+                    rows={3}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="font-ui text-bloom-aubergine/80">Exibição</Label>
+                  <select
+                    className={inputCls}
+                    value={exerciseDisplayMode}
+                    onChange={(e) => setExerciseDisplayMode(e.target.value as "iframe" | "new_tab")}
+                  >
+                    <option value="iframe">Embutido (iframe)</option>
+                    <option value="new_tab">Abrir em nova aba</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
             <div className="rounded-xl border border-bloom-aubergine/12 bg-bloom-cream-deep/30 px-4 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="space-y-0.5 min-w-0">
                 <Label className="font-ui text-bloom-aubergine/80">Pré-visualização</Label>
                 <p className="font-ui text-xs text-bloom-aubergine/55">
-                  Abre o mesmo modal usado na trilha do app (HTML sanitizado).
+                  Abre o mesmo modal usado na trilha do app.
                 </p>
               </div>
               <Button
@@ -765,18 +834,11 @@ export function WaveContentEditorPage() {
               title={title}
               payload={preview.ok ? preview.payload : null}
               error={preview.error}
-              isExercise={isExercise}
               isNew={isNewFlag}
               published={published}
               articleExperts={expertsForArticles?.items}
             />
 
-            <div className="flex items-center gap-3">
-              <Label htmlFor="wave-content-exercise" className="font-ui text-sm text-bloom-aubergine cursor-pointer">
-                Exercício
-              </Label>
-              <Switch id="wave-content-exercise" checked={isExercise} onCheckedChange={setIsExercise} />
-            </div>
             <div className="flex items-center gap-3">
               <Label htmlFor="wave-content-is-new" className="font-ui text-sm text-bloom-aubergine cursor-pointer">
                 Mostrar como novo

@@ -1,4 +1,5 @@
-import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useLayoutEffect, useRef } from "react";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   Buildings,
   House,
@@ -28,7 +29,13 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
 
 export function BackofficeLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const mainRef = useRef<HTMLElement>(null);
   const { signOut } = useBackofficeSession();
+
+  useLayoutEffect(() => {
+    mainRef.current?.scrollTo(0, 0);
+  }, [location.pathname]);
 
   return (
     <div className="min-h-screen bg-bloom-cream flex flex-col">
@@ -154,7 +161,10 @@ export function BackofficeLayout() {
               ))}
             </nav>
           </header>
-          <main className="flex-1 overflow-y-auto px-4 py-6 md:px-10 md:py-10">
+          <main
+            ref={mainRef}
+            className="flex-1 overflow-y-auto px-4 py-6 md:px-10 md:py-10"
+          >
             <Outlet />
           </main>
           <footer className="border-t border-bloom-aubergine/8 py-6 shrink-0">
