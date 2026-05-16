@@ -18,8 +18,8 @@ import {
   putCompanyHubLinks,
   uploadEditorialMediaAsset,
 } from "@/lib/admin-api";
-import { isoToPtBrDatetimeLocalParts, ptBrLocalDatetimeToIso } from "@bloom-at-work/lib/format-date";
-import { getHubPublicHttpsUrlError } from "@hub-url-validation";
+import { isoToPtBrDatetimeLocalParts, ptBrLocalDatetimeToIso } from "@/lib/format-date";
+import { getHubPublicHttpsUrlError } from "@/lib/hub-public-https-url";
 
 type HubUrlErrorKey =
   | "suggestionsTypeformUrl"

@@ -18,7 +18,7 @@ import {
 import { ApiError } from "@/lib/auth/api-client";
 import { filterInputCls, filterSelectCls } from "@/lib/backoffice-filters";
 import { cn } from "@/lib/utils";
-import { formatPtBrDayMonthFromYmd, formatPtBrNumericDate } from "@bloom-at-work/lib/format-date";
+import { formatPtBrDayMonthFromYmd, formatPtBrNumericDate } from "@/lib/format-date";
 
 function defaultYmdRange(): { from: string; to: string } {
   const to = new Date();

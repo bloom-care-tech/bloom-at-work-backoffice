@@ -9,7 +9,7 @@ import { useAdminCompaniesForSelect } from "@/hooks/use-admin-companies-select";
 import { filterSelectCls } from "@/lib/backoffice-filters";
 import { ApiError } from "@/lib/auth/api-client";
 import { fetchSignupAccessLink, fetchSignupAccessPage, revokeSignupAccess } from "@/lib/admin-api";
-import { formatPtBrNumericDate } from "@bloom-at-work/lib/format-date";
+import { formatPtBrNumericDate } from "@/lib/format-date";
 
 export function AccessLinksListPage() {
   const qc = useQueryClient();

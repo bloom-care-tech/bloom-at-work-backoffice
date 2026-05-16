@@ -14,7 +14,7 @@ import { bulkCreateQuotes, deleteQuote, downloadQuoteTemplateXlsx, fetchQuotesPa
 import { triggerBlobDownload } from "@/lib/download-blob";
 import { parseQuoteBulkXlsx, QUOTE_BULK_IMPORT_MAX_ROWS } from "@/lib/parse-quote-bulk-xlsx";
 import type { BulkQuoteImportPayload } from "@/lib/quote-bulk-import.types";
-import { formatPtBrNumericDateFromYmd, isoYmdToPtBrInput, ptBrInputToIsoYmd } from "@bloom-at-work/lib/format-date";
+import { formatPtBrNumericDateFromYmd, isoYmdToPtBrInput, ptBrInputToIsoYmd } from "@/lib/format-date";
 
 type QuoteAudienceFilter = "" | "all" | "leader" | "collaborator";
 

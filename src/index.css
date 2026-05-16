@@ -113,7 +113,7 @@
  * Keep @apply in sync with `bloom-at-work/src/index.css` (`.wave-article-body-prose`).
  *
  * Guided audio card styles: `bloom-at-work/src/components/trilha/audio-player.css`
- * (side-effect import from `@bloom-at-work/components/trilha/AudioPlayer` — do not duplicate here).
+ * (side-effect import from `@/components/trilha/AudioPlayer` — do not duplicate here).
  */
 @layer components {
   .wave-article-body-prose {

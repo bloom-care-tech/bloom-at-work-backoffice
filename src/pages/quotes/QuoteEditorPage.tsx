@@ -9,7 +9,7 @@ import { toast } from "@/components/ui/sonner";
 import { ApiError } from "@/lib/auth/api-client";
 import { useAdminCompaniesForSelect } from "@/hooks/use-admin-companies-select";
 import { createQuote, fetchQuote, updateQuote } from "@/lib/admin-api";
-import { isoYmdToPtBrInput, ptBrInputToIsoYmd } from "@bloom-at-work/lib/format-date";
+import { isoYmdToPtBrInput, ptBrInputToIsoYmd } from "@/lib/format-date";
 
 const inputCls =
   "w-full bg-bloom-cream-deep border border-bloom-aubergine/10 rounded-xl px-4 py-3 font-ui text-sm text-bloom-aubergine placeholder:text-bloom-aubergine/40 focus:outline-none focus:border-bloom-garnet transition-colors duration-260 ease-bloom";

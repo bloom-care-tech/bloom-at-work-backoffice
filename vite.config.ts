@@ -43,8 +43,6 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-      "@bloom-at-work": path.resolve(__dirname, "../bloom-at-work/src"),
-      "@hub-url-validation": path.resolve(__dirname, "../bloom-at-work-api/src/common/validation/hub-public-https-url.ts"),
     },
   },
   test: {

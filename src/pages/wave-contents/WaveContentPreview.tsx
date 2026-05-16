@@ -11,7 +11,7 @@ import {
   YoutubeLogo,
 } from "@phosphor-icons/react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AudioPlayer } from "@bloom-at-work/components/trilha/AudioPlayer";
+import { AudioPlayer } from "@/components/trilha/AudioPlayer";
 import { useHostedMediaUrl } from "@/hooks/use-hosted-media-url";
 import { WAVE_ARTICLE_BODY_PROSE_CLASS } from "@/lib/wave-article-body-class";
 import { waveContentKindLabel, type WaveContentKindApi } from "@/lib/wave-content-kinds";

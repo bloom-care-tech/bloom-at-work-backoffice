@@ -1,0 +1,163 @@
+/**
+ * Bloom guided-audio card — single source of truth for Trilha (app) and backoffice preview.
+ * Uses :root tokens from each app's index.css (--bloom-aubergine, --bloom-garnet, --bloom-cream).
+ */
+
+.bloom-audio-player {
+  border-radius: 1rem;
+  background: linear-gradient(
+    to bottom right,
+    hsl(var(--bloom-aubergine)),
+    hsl(var(--bloom-garnet))
+  );
+  color: hsl(var(--bloom-cream));
+  padding: 1.25rem;
+  box-shadow:
+    0 10px 15px -3px rgb(0 0 0 / 0.08),
+    0 4px 6px -4px rgb(0 0 0 / 0.06);
+}
+
+.bloom-audio-player__media {
+  display: none;
+}
+
+.bloom-audio-player__meta-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.bloom-audio-player__meta-icon {
+  flex-shrink: 0;
+  color: hsl(var(--bloom-cream) / 0.7);
+}
+
+.bloom-audio-player__eyebrow {
+  margin: 0;
+  font-family: "Roboto", system-ui, sans-serif;
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: hsl(var(--bloom-cream) / 0.7);
+}
+
+.bloom-audio-player__title {
+  margin: 0 0 1rem;
+  font-family: "Source Serif Pro", Georgia, serif;
+  font-weight: 400;
+  font-size: 1rem;
+  line-height: 1.35;
+  color: hsl(var(--bloom-cream));
+}
+
+@media (min-width: 768px) {
+  .bloom-audio-player__title {
+    font-size: 1.125rem;
+  }
+}
+
+.bloom-audio-player__controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.bloom-audio-player__play {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 3rem;
+  height: 3rem;
+  padding: 0;
+  border: none;
+  border-radius: 9999px;
+  cursor: pointer;
+  background: hsl(var(--bloom-cream));
+  color: hsl(var(--bloom-aubergine));
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.08),
+    0 2px 4px -2px rgb(0 0 0 / 0.06);
+  transition: transform 0.15s ease;
+}
+
+.bloom-audio-player__play:hover {
+  transform: scale(1.05);
+}
+
+.bloom-audio-player__play:active {
+  transform: scale(0.95);
+}
+
+.bloom-audio-player__play-triangle {
+  margin-left: 2px;
+}
+
+.bloom-audio-player__wave-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.bloom-audio-player__bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 2.5rem;
+}
+
+.bloom-audio-player__bar {
+  flex: 1 1 0;
+  min-width: 0;
+  border-radius: 9999px;
+  transition: background-color 0.15s ease;
+  min-height: 4px;
+  align-self: flex-end;
+}
+
+.bloom-audio-player__bar--past {
+  background-color: hsl(var(--bloom-cream));
+}
+
+.bloom-audio-player__bar--future {
+  background-color: hsl(var(--bloom-cream) / 0.25);
+}
+
+.bloom-audio-player__bar--pulse {
+  animation: bloom-audio-player-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes bloom-audio-player-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bloom-audio-player__bar--pulse {
+    animation: none;
+  }
+
+  .bloom-audio-player__play:hover,
+  .bloom-audio-player__play:active {
+    transform: none;
+  }
+}
+
+.bloom-audio-player__times {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.375rem;
+  font-family: "Roboto", system-ui, sans-serif;
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 400;
+  color: hsl(var(--bloom-cream) / 0.7);
+  font-variant-numeric: tabular-nums;
+}
