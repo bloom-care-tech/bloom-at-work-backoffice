@@ -1,0 +1,6 @@
+# Railway/Nixpacks: build SPA then serve static files (serve reads PORT from the environment).
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "npm start"
