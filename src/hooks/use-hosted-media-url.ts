@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import {
   getAdminHostedMediaAccess,
   isProtectedHostedMediaUrl,
+  normalizePlaybackUrl,
   type HostedMediaAccessJson,
 } from "@/lib/editorial-media-api";
 
@@ -38,7 +39,7 @@ export function useHostedMediaUrl(
     mintAccess(trimmed)
       .then((r) => {
         if (!cancelled) {
-          setSrc(r.mediaUrl);
+          setSrc(normalizePlaybackUrl(r.mediaUrl));
           setLoading(false);
         }
       })
