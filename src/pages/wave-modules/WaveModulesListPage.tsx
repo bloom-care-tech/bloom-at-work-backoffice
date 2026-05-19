@@ -5,17 +5,13 @@ import { ArrowDown, ArrowUp, ListBullets, PencilSimple, Plus, Trash } from "@pho
 import { FadeIn, Eyebrow, PillButton } from "@/components/bloom/primitives";
 import { WaveHierarchyBreadcrumb } from "@/components/waves/WaveHierarchyBreadcrumb";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { ApiError } from "@/lib/auth/api-client";
 import {
-  createWaveModule,
   deleteWaveModule,
   fetchWave,
   fetchWaveModules,
   reorderWaveModules,
-  updateWaveModule,
 } from "@/lib/admin-api";
 
 function swapIds(ids: string[], i: number, j: number): string[] {
@@ -37,10 +33,6 @@ export function WaveModulesListPage() {
   const [orderIds, setOrderIds] = useState<string[] | null>(null);
   const ids = orderIds ?? sorted.map((m) => m.id);
 
-  const [newTitle, setNewTitle] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editTitle, setEditTitle] = useState("");
-
   const reorder = useMutation({
     mutationFn: (next: string[]) => reorderWaveModules(ondaId!, next),
     onSuccess: () => {
@@ -52,27 +44,6 @@ export function WaveModulesListPage() {
       setOrderIds(null);
       toast(e instanceof ApiError ? e.message : "Erro ao reordenar.");
     },
-  });
-
-  const create = useMutation({
-    mutationFn: () => createWaveModule(ondaId!, { title: newTitle.trim() }),
-    onSuccess: () => {
-      toast("Módulo criado.");
-      setNewTitle("");
-      void qc.invalidateQueries({ queryKey: ["wave-modules", ondaId] });
-    },
-    onError: (e) => toast(e instanceof ApiError ? e.message : "Erro ao criar módulo."),
-  });
-
-  const updateTitle = useMutation({
-    mutationFn: ({ id, title }: { id: string; title: string }) =>
-      updateWaveModule(ondaId!, id, { title }),
-    onSuccess: () => {
-      toast("Título atualizado.");
-      setEditingId(null);
-      void qc.invalidateQueries({ queryKey: ["wave-modules", ondaId] });
-    },
-    onError: (e) => toast(e instanceof ApiError ? e.message : "Erro ao atualizar."),
   });
 
   const del = useMutation({
@@ -124,38 +95,13 @@ export function WaveModulesListPage() {
           <div>
             <h1 className="font-serif-display text-3xl text-bloom-aubergine">Módulos da onda</h1>
             <p className="font-ui text-sm text-bloom-aubergine/65 mt-1">
-              Cada módulo agrupa conteúdos publicados no app. Dentro de um módulo, ordene e edite os itens da trilha.
+              Ordene com as setas; edite metadados ou gerencie conteúdos de cada módulo.
             </p>
           </div>
-          <PillButton asLink="/ondas" variant="ghost-aubergine">
-            Voltar às ondas
-          </PillButton>
-        </div>
-      </FadeIn>
-
-      <FadeIn delay={0.04}>
-        <div className="bg-white/90 border border-bloom-aubergine/10 rounded-2xl p-5 md:p-6 space-y-3">
-          <Label htmlFor="new-module-title" className="font-ui text-sm text-bloom-aubergine/80">
+          <PillButton asLink={`/ondas/${ondaId}/modulos/novo`}>
+            <Plus className="inline mr-2" size={18} weight="bold" />
             Novo módulo
-          </Label>
-          <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
-            <Input
-              id="new-module-title"
-              className="max-w-md bg-bloom-cream-deep border-bloom-aubergine/15"
-              placeholder="Título do módulo"
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-            />
-            <Button
-              type="button"
-              disabled={!newTitle.trim() || create.isPending}
-              onClick={() => create.mutate()}
-              className="rounded-full"
-            >
-              <Plus className="inline mr-1 h-4 w-4" weight="bold" />
-              Adicionar
-            </Button>
-          </div>
+          </PillButton>
         </div>
       </FadeIn>
 
@@ -170,6 +116,7 @@ export function WaveModulesListPage() {
                 <tr className="border-b border-bloom-aubergine/10 text-left text-bloom-aubergine/55 uppercase text-[11px] tracking-wide">
                   <th className="px-4 py-3 w-10">#</th>
                   <th className="px-4 py-3">Título</th>
+                  <th className="px-4 py-3">Subtítulo</th>
                   <th className="px-4 py-3">Conteúdos</th>
                   <th className="px-4 py-3 text-right">Ações</th>
                 </tr>
@@ -178,43 +125,11 @@ export function WaveModulesListPage() {
                 {ids.map((id, index) => {
                   const row = sorted.find((m) => m.id === id);
                   if (!row) return null;
-                  const isEditing = editingId === id;
                   return (
                     <tr key={id} className="border-b border-bloom-aubergine/8 last:border-0">
                       <td className="px-4 py-3 text-bloom-aubergine/50">{index + 1}</td>
-                      <td className="px-4 py-3">
-                        {isEditing ? (
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Input
-                              className="max-w-xs bg-bloom-cream-deep border-bloom-aubergine/15 h-9"
-                              value={editTitle}
-                              onChange={(e) => setEditTitle(e.target.value)}
-                            />
-                            <Button
-                              type="button"
-                              size="sm"
-                              className="rounded-full h-8"
-                              disabled={!editTitle.trim() || updateTitle.isPending}
-                              onClick={() =>
-                                updateTitle.mutate({ id, title: editTitle.trim() })
-                              }
-                            >
-                              Salvar
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-8"
-                              onClick={() => setEditingId(null)}
-                            >
-                              Cancelar
-                            </Button>
-                          </div>
-                        ) : (
-                          <span className="font-medium">{row.title}</span>
-                        )}
-                      </td>
+                      <td className="px-4 py-3 font-medium">{row.title}</td>
+                      <td className="px-4 py-3 text-bloom-aubergine/70 max-w-[200px] truncate">{row.subtitle}</td>
                       <td className="px-4 py-3">{row.contentCount}</td>
                       <td className="px-4 py-3">
                         <div className="flex justify-end gap-1 flex-wrap">
@@ -248,19 +163,10 @@ export function WaveModulesListPage() {
                               <ListBullets className="h-4 w-4" />
                             </Link>
                           </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-9 w-9"
-                            disabled={isEditing}
-                            onClick={() => {
-                              setEditingId(id);
-                              setEditTitle(row.title);
-                            }}
-                            aria-label="Editar título"
-                          >
-                            <PencilSimple className="h-4 w-4" />
+                          <Button type="button" variant="ghost" size="icon" className="h-9 w-9" asChild>
+                            <Link to={`/ondas/${ondaId}/modulos/${id}`} aria-label="Editar módulo">
+                              <PencilSimple className="h-4 w-4" />
+                            </Link>
                           </Button>
                           <Button
                             type="button"
@@ -290,9 +196,11 @@ export function WaveModulesListPage() {
 
       {!isLoading && sorted.length === 0 && (
         <FadeIn delay={0.05}>
-          <p className="font-ui text-sm text-bloom-aubergine/65">
-            Nenhum módulo encontrado para esta onda.
-          </p>
+          <p className="font-ui text-sm text-bloom-aubergine/65">Nenhum módulo encontrado para esta onda.</p>
+          <PillButton asLink={`/ondas/${ondaId}/modulos/novo`} className="mt-4">
+            <Plus className="inline mr-2" size={18} weight="bold" />
+            Criar primeiro módulo
+          </PillButton>
         </FadeIn>
       )}
     </div>

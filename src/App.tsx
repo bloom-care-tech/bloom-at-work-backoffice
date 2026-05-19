@@ -20,6 +20,7 @@ import { QuoteEditorPage } from "@/pages/quotes/QuoteEditorPage";
 import { WavesListPage } from "@/pages/waves/WavesListPage";
 import { WaveEditorPage } from "@/pages/waves/WaveEditorPage";
 import { WaveModulesListPage } from "@/pages/wave-modules/WaveModulesListPage";
+import { WaveModuleEditorPage } from "@/pages/wave-modules/WaveModuleEditorPage";
 import { WaveContentsListPage } from "@/pages/wave-contents/WaveContentsListPage";
 import { WaveContentEditorPage } from "@/pages/wave-contents/WaveContentEditorPage";
 import { SkillsListPage } from "@/pages/skills/SkillsListPage";
@@ -65,9 +66,11 @@ const App = () => (
               <Route path="frases/nova" element={<QuoteEditorPage />} />
               <Route path="frases/:quoteId" element={<QuoteEditorPage />} />
               <Route path="ondas/nova" element={<WaveEditorPage />} />
+              <Route path="ondas/:ondaId/modulos/novo" element={<WaveModuleEditorPage />} />
               <Route path="ondas/:ondaId/modulos/:moduloId/conteudos/novo" element={<WaveContentEditorPage />} />
               <Route path="ondas/:ondaId/modulos/:moduloId/conteudos/:conteudoId" element={<WaveContentEditorPage />} />
               <Route path="ondas/:ondaId/modulos/:moduloId/conteudos" element={<WaveContentsListPage />} />
+              <Route path="ondas/:ondaId/modulos/:moduloId" element={<WaveModuleEditorPage />} />
               <Route path="ondas/:ondaId/modulos" element={<WaveModulesListPage />} />
               <Route path="ondas/:ondaId" element={<WaveEditorPage />} />
               <Route path="ondas" element={<WavesListPage />} />

@@ -187,6 +187,13 @@ export function WaveEditorPage() {
               </Label>
               <Switch id="wave-active" checked={active} onCheckedChange={setActive} />
             </div>
+            {!isNew && id && (
+              <div className="pt-1">
+                <PillButton asLink={`/ondas/${id}/modulos`} variant="ghost-aubergine">
+                  Gerenciar módulos
+                </PillButton>
+              </div>
+            )}
             <div className="flex gap-3 pt-2">
               <PillButton type="submit" disabled={save.isPending}>
                 {save.isPending ? "Salvando…" : "Salvar"}

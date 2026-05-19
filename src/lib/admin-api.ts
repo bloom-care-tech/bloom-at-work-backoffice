@@ -318,6 +318,7 @@ export interface WaveModuleDto {
   waveId: string;
   slug: string;
   title: string;
+  subtitle: string;
   sortOrder: number;
   contentCount: number;
 }
@@ -326,9 +327,13 @@ export async function fetchWaveModules(waveId: string) {
   return apiFetch<WaveModuleDto[]>(`/admin/ondas/${waveId}/modulos`, { auth: true });
 }
 
+export async function fetchWaveModule(waveId: string, moduleId: string) {
+  return apiFetch<WaveModuleDto>(`/admin/ondas/${waveId}/modulos/${moduleId}`, { auth: true });
+}
+
 export async function createWaveModule(
   waveId: string,
-  body: { title: string; sortOrder?: number; slug?: string },
+  body: { title: string; subtitle: string; sortOrder?: number; slug?: string },
 ) {
   return apiFetch<{ id: string }>(`/admin/ondas/${waveId}/modulos`, {
     method: "POST",
@@ -340,7 +345,7 @@ export async function createWaveModule(
 export async function updateWaveModule(
   waveId: string,
   moduleId: string,
-  body: Partial<{ title: string; sortOrder: number; slug: string }>,
+  body: Partial<{ title: string; subtitle: string; sortOrder: number; slug: string }>,
 ) {
   return apiFetch<{ ok: true }>(`/admin/ondas/${waveId}/modulos/${moduleId}`, {
     method: "PATCH",
