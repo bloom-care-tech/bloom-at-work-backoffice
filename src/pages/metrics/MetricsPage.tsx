@@ -10,21 +10,40 @@ import {
   downloadContentRankingCsv,
   downloadCohortMetricsCsv,
   downloadEngagementMetricsCsv,
+  downloadSkillEngagementHierarchyCsv,
+  downloadWaveEngagementHierarchyCsv,
   fetchContentRanking,
   fetchCohortMetrics,
   fetchEngagementMetrics,
+  fetchSkillEngagementHierarchy,
+  fetchWaveEngagementHierarchy,
   type MetricsHubRoleFilter,
 } from "@/lib/admin-api";
+import { MetricsHierarchyDrilldown } from "@/pages/metrics/MetricsHierarchyDrilldown";
+import { skillHierarchyToNodes, waveHierarchyToNodes } from "@/pages/metrics/metrics-hierarchy-mappers";
 import { ApiError } from "@/lib/auth/api-client";
 import { filterInputCls, filterSelectCls } from "@/lib/backoffice-filters";
 import { cn } from "@/lib/utils";
 import { formatPtBrDayMonthFromYmd, formatPtBrNumericDate } from "@/lib/format-date";
 
-function defaultYmdRange(): { from: string; to: string } {
+function ymdUtc(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function presetYmdRange(days: 7 | 30): { from: string; to: string } {
   const to = new Date();
   const from = new Date();
-  from.setUTCDate(from.getUTCDate() - 30);
-  return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
+  from.setUTCDate(from.getUTCDate() - days);
+  return { from: ymdUtc(from), to: ymdUtc(to) };
+}
+
+function defaultYmdRange(): { from: string; to: string } {
+  return presetYmdRange(30);
+}
+
+function matchesPresetRange(from: string, to: string, days: 7 | 30): boolean {
+  const preset = presetYmdRange(days);
+  return from === preset.from && to === preset.to;
 }
 
 const CONTENT_TYPE_LABEL: Record<string, string> = {
@@ -37,36 +56,31 @@ const CONTENT_TYPE_LABEL: Record<string, string> = {
   other: "Outro",
 };
 
-/** Short labels for bar chart (dashboard). */
-const CONTENT_TYPE_SHORT: Record<string, string> = {
-  wave_content: "Onda",
-  wave_module: "Onda·mod.",
-  skill_item: "Habilidade",
-  skill: "Hab.·pág.",
-  document: "Doc.",
-  quote: "Bloom",
-  other: "Outro",
-};
-
 function sortByCountDesc<T extends { count: number }>(rows: T[]): T[] {
   return [...rows].sort((a, b) => b.count - a.count);
 }
 
-function aggregateRankingByType(
-  rows: { contentType: string; count: number }[],
+function truncateChartLabel(text: string, maxLen = 14): string {
+  const t = text.trim();
+  if (t.length <= maxLen) return t;
+  return `${t.slice(0, maxLen - 1)}…`;
+}
+
+function topRankingForChart(
+  rows: { contentId: string; contentTitle: string; count: number }[],
+  limit = 7,
 ): { key: string; label: string; short: string; count: number }[] {
-  const map = new Map<string, number>();
-  for (const r of rows) {
-    map.set(r.contentType, (map.get(r.contentType) ?? 0) + r.count);
-  }
-  return sortByCountDesc(
-    [...map.entries()].map(([key, count]) => ({
-      key,
-      label: CONTENT_TYPE_LABEL[key] ?? key,
-      short: CONTENT_TYPE_SHORT[key] ?? key.slice(0, 8),
-      count,
-    })),
-  ).slice(0, 7);
+  return sortByCountDesc(rows)
+    .slice(0, limit)
+    .map((r) => {
+      const label = r.contentTitle.trim() || r.contentId;
+      return {
+        key: r.contentId,
+        label,
+        short: truncateChartLabel(label),
+        count: r.count,
+      };
+    });
 }
 
 function Panel({
@@ -138,7 +152,6 @@ export function MetricsPage() {
   const [{ from: dateFrom, to: dateTo }, setRange] = useState(defaultYmdRange);
   const [companyId, setCompanyId] = useState("");
   const [role, setRole] = useState<"" | MetricsHubRoleFilter>("");
-  const [rankingPeriod, setRankingPeriod] = useState<"week" | "month">("month");
   const [csvBusy, setCsvBusy] = useState(false);
 
   const companies = useAdminCompaniesForSelect();
@@ -161,9 +174,9 @@ export function MetricsPage() {
   );
 
   const ranking = useQuery({
-    queryKey: ["metrics", "ranking", filterKey, rankingPeriod],
+    queryKey: ["metrics", "ranking", filterKey],
     queryFn: () =>
-      fetchContentRanking(rankingPeriod, filterKey.fromIso, filterKey.toIso, filterKey.companyParam, filterKey.roleParam),
+      fetchContentRanking("month", filterKey.fromIso, filterKey.toIso, filterKey.companyParam, filterKey.roleParam),
     enabled: filterKey.enabled,
   });
 
@@ -179,12 +192,38 @@ export function MetricsPage() {
     enabled: filterKey.enabled,
   });
 
+  const waveHierarchy = useQuery({
+    queryKey: ["metrics", "waves-hierarchy", filterKey],
+    queryFn: () =>
+      fetchWaveEngagementHierarchy(filterKey.fromIso, filterKey.toIso, filterKey.companyParam, filterKey.roleParam),
+    enabled: filterKey.enabled,
+  });
+
+  const skillHierarchy = useQuery({
+    queryKey: ["metrics", "skills-hierarchy", filterKey],
+    queryFn: () =>
+      fetchSkillEngagementHierarchy(filterKey.fromIso, filterKey.toIso, filterKey.companyParam, filterKey.roleParam),
+    enabled: filterKey.enabled,
+  });
+
+  const waveHierarchyNodes = useMemo(
+    () => (waveHierarchy.data ? waveHierarchyToNodes(waveHierarchy.data) : []),
+    [waveHierarchy.data],
+  );
+
+  const skillHierarchyNodes = useMemo(
+    () => (skillHierarchy.data ? skillHierarchyToNodes(skillHierarchy.data) : []),
+    [skillHierarchy.data],
+  );
+
+  const activeDaysPreset = useMemo((): 7 | 30 | null => {
+    if (matchesPresetRange(dateFrom, dateTo, 7)) return 7;
+    if (matchesPresetRange(dateFrom, dateTo, 30)) return 30;
+    return null;
+  }, [dateFrom, dateTo]);
+
   const applyPreset = (days: 7 | 30) => {
-    const to = new Date();
-    const from = new Date();
-    from.setUTCDate(from.getUTCDate() - days);
-    setRange({ from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) });
-    setRankingPeriod(days === 7 ? "week" : "month");
+    setRange(presetYmdRange(days));
   };
 
   const clearFilters = () => {
@@ -197,7 +236,7 @@ export function MetricsPage() {
     if (rangeInvalid) return;
     setCsvBusy(true);
     try {
-      await downloadContentRankingCsv(rankingPeriod, fromIso, toIso, companyParam, roleParam);
+      await downloadContentRankingCsv("month", fromIso, toIso, companyParam, roleParam);
       toast("Exportação CSV iniciada.");
     } catch (e) {
       toast(e instanceof ApiError ? e.message : "Não foi possível exportar o ranking.");
@@ -214,6 +253,32 @@ export function MetricsPage() {
       toast("Exportação CSV iniciada.");
     } catch (e) {
       toast(e instanceof ApiError ? e.message : "Não foi possível exportar o engajamento.");
+    } finally {
+      setCsvBusy(false);
+    }
+  };
+
+  const onExportWaveHierarchyCsv = async () => {
+    if (rangeInvalid) return;
+    setCsvBusy(true);
+    try {
+      await downloadWaveEngagementHierarchyCsv(fromIso, toIso, companyParam, roleParam);
+      toast("Exportação CSV iniciada.");
+    } catch (e) {
+      toast(e instanceof ApiError ? e.message : "Não foi possível exportar as ondas.");
+    } finally {
+      setCsvBusy(false);
+    }
+  };
+
+  const onExportSkillHierarchyCsv = async () => {
+    if (rangeInvalid) return;
+    setCsvBusy(true);
+    try {
+      await downloadSkillEngagementHierarchyCsv(fromIso, toIso, companyParam, roleParam);
+      toast("Exportação CSV iniciada.");
+    } catch (e) {
+      toast(e instanceof ApiError ? e.message : "Não foi possível exportar as habilidades.");
     } finally {
       setCsvBusy(false);
     }
@@ -242,7 +307,7 @@ export function MetricsPage() {
     })) ?? [];
 
   const barBuckets = useMemo(
-    () => aggregateRankingByType(ranking.data?.rows ?? []),
+    () => topRankingForChart(ranking.data?.rows ?? []),
     [ranking.data?.rows],
   );
   const barMax = barBuckets.length ? Math.max(...barBuckets.map((b) => b.count), 1) : 1;
@@ -293,7 +358,6 @@ export function MetricsPage() {
 
   const topDocTitle = docRows[0]?.titulo;
   const topMapCategory = mapRows[0]?.categoria;
-  const waveAbove = engagement.data?.wave.filter((r) => r.count >= engagement.data.suppressionMinCount).length ?? 0;
 
   return (
     <div
@@ -307,8 +371,7 @@ export function MetricsPage() {
           <Eyebrow tone="garnet">Privacidade</Eyebrow>
           <h1 className="mt-1 font-serif-display text-3xl text-bloom-aubergine">Métricas agregadas</h1>
           <p className="mt-1 max-w-3xl font-ui text-sm text-bloom-aubergine/65">
-            Dados anonimizados e agregados a partir das interações. O servidor oculta contagens abaixo do limiar mínimo de
-            cada resposta.
+            Dados anonimizados e agregados a partir das interações registradas no hub.
           </p>
           <div className="mt-3 inline-flex items-center gap-2.5 rounded-full border border-bloom-garnet/16 bg-bloom-garnet/[0.07] px-3.5 py-2 font-ui text-xs font-extrabold text-bloom-garnet">
             <Lock size={16} weight="duotone" aria-hidden className="shrink-0" />
@@ -321,10 +384,22 @@ export function MetricsPage() {
             className="flex flex-wrap items-end gap-3 rounded-[1.75rem] border border-bloom-aubergine/12 bg-[hsla(40,43%,98%,0.78)] p-[18px] backdrop-blur-md"
             aria-label="Filtros"
           >
-            <Button type="button" size="sm" className="h-11 rounded-[0.875rem] px-4 shadow-md" onClick={() => applyPreset(7)}>
+            <Button
+              type="button"
+              size="sm"
+              variant={activeDaysPreset === 7 ? "default" : "secondary"}
+              className={cn("h-11 rounded-[0.875rem] px-4", activeDaysPreset === 7 && "shadow-md")}
+              onClick={() => applyPreset(7)}
+            >
               Últimos 7 dias
             </Button>
-            <Button type="button" variant="secondary" size="sm" className="h-11 rounded-[0.875rem] px-4" onClick={() => applyPreset(30)}>
+            <Button
+              type="button"
+              size="sm"
+              variant={activeDaysPreset === 30 ? "default" : "secondary"}
+              className={cn("h-11 rounded-[0.875rem] px-4", activeDaysPreset === 30 && "shadow-md")}
+              onClick={() => applyPreset(30)}
+            >
               Últimos 30 dias
             </Button>
             <div className="min-w-[10rem] flex-1">
@@ -399,35 +474,7 @@ export function MetricsPage() {
             <FadeIn delay={0.06}>
               <Panel
                 title="Conteúdos mais acessados"
-                description="Volume por tipo de conteúdo no ranking (itens acima do limiar). A base temporal do ranking segue a aba selecionada."
-                headerRight={
-                  <div className="inline-flex gap-1 rounded-full bg-bloom-aubergine/[0.06] p-1" role="tablist" aria-label="Base do ranking">
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={rankingPeriod === "week"}
-                      onClick={() => setRankingPeriod("week")}
-                      className={cn(
-                        "rounded-full px-3 py-2 font-ui text-[12px] font-extrabold transition-colors",
-                        rankingPeriod === "week" ? "bg-bloom-garnet text-white" : "text-bloom-aubergine/55 hover:text-bloom-aubergine",
-                      )}
-                    >
-                      Semanal
-                    </button>
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={rankingPeriod === "month"}
-                      onClick={() => setRankingPeriod("month")}
-                      className={cn(
-                        "rounded-full px-3 py-2 font-ui text-[12px] font-extrabold transition-colors",
-                        rankingPeriod === "month" ? "bg-bloom-garnet text-white" : "text-bloom-aubergine/55 hover:text-bloom-aubergine",
-                      )}
-                    >
-                      Mensal
-                    </button>
-                  </div>
-                }
+                description="Principais conteúdos do ranking por volume de acesso no período filtrado."
               >
                 {ranking.isLoading ? <p className="font-ui text-sm text-bloom-aubergine/60">Carregando…</p> : null}
                 {ranking.isError ? (
@@ -438,8 +485,7 @@ export function MetricsPage() {
                 {ranking.data ? (
                   <>
                     <p className="mb-3 font-ui text-[11px] text-bloom-aubergine/50">
-                      Janela (API): {formatPtBrNumericDate(ranking.data.from)} — {formatPtBrNumericDate(ranking.data.to)} · Limiar:{" "}
-                      {ranking.data.suppressionMinCount}+ acessos
+                      Janela: {formatPtBrNumericDate(ranking.data.from)} — {formatPtBrNumericDate(ranking.data.to)}
                     </p>
                     <div
                       className={cn(
@@ -448,7 +494,7 @@ export function MetricsPage() {
                       )}
                     >
                       {barBuckets.length === 0 ? (
-                        <p className="font-ui text-sm text-bloom-aubergine/55">Sem tipos acima do limiar para o período.</p>
+                        <p className="font-ui text-sm text-bloom-aubergine/55">Sem conteúdos no período.</p>
                       ) : (
                         <div
                           className="grid h-56 gap-2 sm:gap-3"
@@ -464,7 +510,7 @@ export function MetricsPage() {
                                 "from-[#9A5D46] to-[#9A5D46]/25 shadow-[0_14px_30px_rgba(154,93,70,0.14)]"
                               : "from-[#6F8182] to-[#6F8182]/22 shadow-[0_14px_24px_rgba(111,129,130,0.12)]";
                             return (
-                              <div key={b.key} className="flex min-w-0 flex-col items-center justify-end gap-2">
+                              <div key={b.key} title={b.label} className="flex min-w-0 flex-col items-center justify-end gap-2">
                                 <div
                                   className={cn(
                                     "w-full max-w-[3.25rem] rounded-t-2xl rounded-b-lg bg-gradient-to-b",
@@ -482,7 +528,7 @@ export function MetricsPage() {
                         </div>
                       )}
                     </div>
-                    <div className="mt-3.5 grid gap-3 sm:grid-cols-3">
+                    <div className="mt-3.5 grid gap-3 sm:grid-cols-2">
                       <div className="rounded-[1.25rem] border border-bloom-aubergine/10 bg-white/55 p-4 shadow-none backdrop-blur-sm">
                         <strong className="block truncate font-serif-display text-xl tracking-tight text-bloom-aubergine">
                           {topDocTitle ?? "—"}
@@ -494,10 +540,6 @@ export function MetricsPage() {
                           {topMapCategory ?? "—"}
                         </strong>
                         <span className="font-ui text-[12px] font-bold text-bloom-aubergine/55">Categoria líder (Mapa GB)</span>
-                      </div>
-                      <div className="rounded-[1.25rem] border border-bloom-aubergine/10 bg-white/55 p-4 shadow-none backdrop-blur-sm">
-                        <strong className="block font-serif-display text-xl tracking-tight text-bloom-aubergine">{waveAbove}</strong>
-                        <span className="font-ui text-[12px] font-bold text-bloom-aubergine/55">Itens de onda acima do limiar</span>
                       </div>
                     </div>
                   </>
@@ -524,7 +566,7 @@ export function MetricsPage() {
                 }
               >
                 {ranking.data && rankingRows.length === 0 ? (
-                  <p className="font-ui text-sm text-bloom-aubergine/55">Sem linhas acima do limiar para os filtros atuais.</p>
+                  <p className="font-ui text-sm text-bloom-aubergine/55">Sem dados para os filtros atuais.</p>
                 ) : null}
                 {ranking.data && rankingRows.length > 0 ? (
                   <div className="overflow-hidden rounded-[1.25rem] border border-bloom-aubergine/12 bg-white/45">
@@ -575,84 +617,6 @@ export function MetricsPage() {
               </Panel>
             </FadeIn>
 
-            <FadeIn delay={0.08}>
-              <Panel
-                title="Engajamento por área"
-                description="O que as pessoas estão acessando por onda, habilidade, documentos e Mapa de Documentos (amostra dos principais itens)."
-                headerRight={
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    className="h-10 rounded-[0.875rem]"
-                    disabled={csvBusy || rangeInvalid || !filterKey.enabled}
-                    onClick={() => void onExportEngagementCsv()}
-                  >
-                    <DownloadSimple size={18} weight="duotone" aria-hidden className="mr-1.5 inline" />
-                    Exportar engajamento
-                  </Button>
-                }
-              >
-                {engagement.isLoading ? <p className="font-ui text-sm text-bloom-aubergine/60">Carregando…</p> : null}
-                {engagement.isError ? (
-                  <p className="font-ui text-sm text-red-700">
-                    {engagement.error instanceof ApiError ? engagement.error.message : "Erro ao carregar engajamento."}
-                  </p>
-                ) : null}
-                {engagement.data ? (
-                  <>
-                    <p className="mb-4 font-ui text-[11px] text-bloom-aubergine/50">
-                      Período: {formatPtBrNumericDate(engagement.data.from)} — {formatPtBrNumericDate(engagement.data.to)} · Limiar:{" "}
-                      {engagement.data.suppressionMinCount}+ por série
-                    </p>
-                    <div className="grid gap-3.5 md:grid-cols-2">
-                      <ListCard
-                        title="Onda · conteúdo"
-                        rows={waveRows.slice(0, 5).map((r) => ({ label: r.titulo, count: r.count, hint: r.contentId }))}
-                        rowHint={(row) => `Identificador: ${row.hint}`}
-                        emptyLabel="Sem dados acima do limiar."
-                      />
-                      <ListCard
-                        title="Onda · módulo (página)"
-                        rows={waveModuleRows.slice(0, 5).map((r) => ({ label: r.titulo, count: r.count, hint: r.contentId }))}
-                        rowHint={(row) => `Identificador: ${row.hint}`}
-                        emptyLabel="Sem dados acima do limiar."
-                      />
-                      <ListCard
-                        title="Habilidades · itens"
-                        rows={skillRows.slice(0, 5).map((r) => ({ label: r.titulo, count: r.count, hint: r.contentId }))}
-                        rowHint={(row) => `Identificador: ${row.hint}`}
-                        emptyLabel="Sem dados acima do limiar."
-                      />
-                      <ListCard
-                        title="Documentos"
-                        rows={docRows.slice(0, 5).map((r) => ({ label: r.titulo, count: r.count, hint: r.contentId }))}
-                        rowHint={(row) => `Identificador: ${row.hint}`}
-                        emptyLabel="Sem dados acima do limiar."
-                      />
-                      <ListCard
-                        title="Mapa de documentos · categorias"
-                        rows={mapRows.slice(0, 5).map((r) => ({ label: r.categoria, count: r.count, hint: r.categoryId }))}
-                        rowHint={(row) => `Identificador: ${row.hint}`}
-                        emptyLabel="Sem dados acima do limiar."
-                      />
-                      <ListCard
-                        title="Habilidades · página (slug)"
-                        rows={skillPageRows.slice(0, 5).map((r) => ({ label: r.titulo, count: r.count, hint: r.contentId }))}
-                        rowHint={(row) => `Slug: ${row.hint}`}
-                        emptyLabel="Sem dados acima do limiar."
-                      />
-                      <ListCard
-                        title="Bloom do dia · citações"
-                        rows={quoteRows.slice(0, 5).map((r) => ({ label: r.titulo, count: r.count, hint: r.contentId }))}
-                        rowHint={(row) => `Identificador: ${row.hint}`}
-                        emptyLabel="Sem dados acima do limiar."
-                      />
-                    </div>
-                  </>
-                ) : null}
-              </Panel>
-            </FadeIn>
           </div>
 
           <aside className="space-y-5">
@@ -728,9 +692,9 @@ export function MetricsPage() {
                       {cohorts.data.dailyActiveUsersByDay.map((d) => {
                         const ratio = d.users / dailyMax;
                         const heat =
-                          ratio >= 0.85 ? "border-bloom-garnet/25 bg-bloom-garnet/10"
-                          : ratio >= 0.55 ? "border-[#9A5D46]/20 bg-[#9A5D46]/10"
-                          : "border-bloom-aubergine/12 bg-white/45";
+                          ratio >= 0.85 ? "border-bloom-garnet/45 bg-bloom-garnet/24"
+                          : ratio >= 0.55 ? "border-[#9A5D46]/38 bg-[#9A5D46]/20"
+                          : "border-bloom-aubergine/20 bg-bloom-aubergine/[0.10]";
                         return (
                           <div
                             key={d.day}
@@ -757,32 +721,164 @@ export function MetricsPage() {
               </Panel>
             </FadeIn>
 
-            <FadeIn delay={0.08}>
-              <Panel title="Leituras rápidas" description="Sinais de produto sem transformar o painel em ranking competitivo.">
-                <div className="rounded-[1.25rem] border border-bloom-aubergine/12 bg-white/45 p-3.5">
-                  <div className="flex justify-between gap-3 border-bloom-aubergine/[0.07] py-2.5 font-ui text-[13px] first:pt-0">
-                    <span className="text-bloom-aubergine/60">Exportações administrativas</span>
-                    <strong className="text-bloom-aubergine">CSV</strong>
-                  </div>
-                  <div className="flex justify-between gap-3 border-t border-bloom-aubergine/[0.07] py-2.5 font-ui text-[13px]">
-                    <span className="min-w-0 truncate text-bloom-aubergine/60">Categoria líder (Mapa GB)</span>
-                    <strong className="shrink-0 text-bloom-aubergine">{topMapCategory ?? "—"}</strong>
-                  </div>
-                  <div className="flex justify-between gap-3 border-t border-bloom-aubergine/[0.07] py-2.5 font-ui text-[13px]">
-                    <span className="text-bloom-aubergine/60">Itens no ranking (limiar)</span>
-                    <strong className="text-bloom-aubergine">{ranking.data?.rows.length ?? "—"}</strong>
-                  </div>
-                  <div className="flex justify-between gap-3 border-t border-bloom-aubergine/[0.07] py-2.5 font-ui text-[13px]">
-                    <span className="text-bloom-aubergine/60">Filtros ativos</span>
-                    <strong className="max-w-[10rem] truncate text-bloom-aubergine">
-                      {[companyId && "empresa", role && "papel"].filter(Boolean).join(" · ") || "nenhum"}
-                    </strong>
-                  </div>
-                </div>
-              </Panel>
-            </FadeIn>
           </aside>
         </div>
+
+        <FadeIn delay={0.08}>
+          <Panel
+            title="Engajamento por área"
+            description="O que as pessoas estão acessando por onda, habilidade, documentos e Mapa de Documentos (amostra dos principais itens)."
+            headerRight={
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="h-10 rounded-[0.875rem]"
+                disabled={csvBusy || rangeInvalid || !filterKey.enabled}
+                onClick={() => void onExportEngagementCsv()}
+              >
+                <DownloadSimple size={18} weight="duotone" aria-hidden className="mr-1.5 inline" />
+                Exportar engajamento
+              </Button>
+            }
+          >
+            {engagement.isLoading ? <p className="font-ui text-sm text-bloom-aubergine/60">Carregando…</p> : null}
+            {engagement.isError ? (
+              <p className="font-ui text-sm text-red-700">
+                {engagement.error instanceof ApiError ? engagement.error.message : "Erro ao carregar engajamento."}
+              </p>
+            ) : null}
+            {engagement.data ? (
+              <>
+                <p className="mb-4 font-ui text-[11px] text-bloom-aubergine/50">
+                  Período: {formatPtBrNumericDate(engagement.data.from)} — {formatPtBrNumericDate(engagement.data.to)}
+                </p>
+                <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  <ListCard
+                    title="Onda · conteúdo"
+                    rows={waveRows.slice(0, 5).map((r) => ({ label: r.titulo, count: r.count, hint: r.contentId }))}
+                    rowHint={(row) => `Identificador: ${row.hint}`}
+                    emptyLabel="Sem dados no período."
+                  />
+                  <ListCard
+                    title="Onda · módulo (página)"
+                    rows={waveModuleRows.slice(0, 5).map((r) => ({ label: r.titulo, count: r.count, hint: r.contentId }))}
+                    rowHint={(row) => `Identificador: ${row.hint}`}
+                    emptyLabel="Sem dados no período."
+                  />
+                  <ListCard
+                    title="Habilidades · itens"
+                    rows={skillRows.slice(0, 5).map((r) => ({ label: r.titulo, count: r.count, hint: r.contentId }))}
+                    rowHint={(row) => `Identificador: ${row.hint}`}
+                    emptyLabel="Sem dados no período."
+                  />
+                  <ListCard
+                    title="Documentos"
+                    rows={docRows.slice(0, 5).map((r) => ({ label: r.titulo, count: r.count, hint: r.contentId }))}
+                    rowHint={(row) => `Identificador: ${row.hint}`}
+                    emptyLabel="Sem dados no período."
+                  />
+                  <ListCard
+                    title="Mapa de documentos · categorias"
+                    rows={mapRows.slice(0, 5).map((r) => ({ label: r.categoria, count: r.count, hint: r.categoryId }))}
+                    rowHint={(row) => `Identificador: ${row.hint}`}
+                    emptyLabel="Sem dados no período."
+                  />
+                  <ListCard
+                    title="Habilidades · página (slug)"
+                    rows={skillPageRows.slice(0, 5).map((r) => ({ label: r.titulo, count: r.count, hint: r.contentId }))}
+                    rowHint={(row) => `Slug: ${row.hint}`}
+                    emptyLabel="Sem dados no período."
+                  />
+                  <ListCard
+                    title="Bloom do dia · citações"
+                    rows={quoteRows.slice(0, 5).map((r) => ({ label: r.titulo, count: r.count, hint: r.contentId }))}
+                    rowHint={(row) => `Identificador: ${row.hint}`}
+                    emptyLabel="Sem dados no período."
+                  />
+                </div>
+              </>
+            ) : null}
+          </Panel>
+        </FadeIn>
+
+        <FadeIn delay={0.075}>
+          <div className="grid w-full gap-5 lg:grid-cols-2">
+            <Panel
+              title="Ondas · hierarquia"
+              description="Expanda cada onda e módulo para ver o volume de acesso até o conteúdo individual."
+              headerRight={
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="h-10 rounded-[0.875rem]"
+                  disabled={csvBusy || rangeInvalid || !filterKey.enabled}
+                  onClick={() => void onExportWaveHierarchyCsv()}
+                >
+                  <DownloadSimple size={18} weight="duotone" aria-hidden className="mr-1.5 inline" />
+                  Exportar CSV
+                </Button>
+              }
+            >
+              {waveHierarchy.isLoading ? <p className="font-ui text-sm text-bloom-aubergine/60">Carregando…</p> : null}
+              {waveHierarchy.isError ? (
+                <p className="font-ui text-sm text-red-700">
+                  {waveHierarchy.error instanceof ApiError ? waveHierarchy.error.message : "Erro ao carregar ondas."}
+                </p>
+              ) : null}
+              {waveHierarchy.data ? (
+                <>
+                  <p className="mb-4 font-ui text-[11px] text-bloom-aubergine/50">
+                    Período: {formatPtBrNumericDate(waveHierarchy.data.from)} —{" "}
+                    {formatPtBrNumericDate(waveHierarchy.data.to)}
+                  </p>
+                  <MetricsHierarchyDrilldown
+                    roots={waveHierarchyNodes}
+                    emptyLabel="Sem acessos em ondas no período."
+                  />
+                </>
+              ) : null}
+            </Panel>
+
+            <Panel
+              title="Habilidades · hierarquia"
+              description="Expanda cada habilidade para ver acessos na página e nos itens de conteúdo."
+              headerRight={
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="h-10 rounded-[0.875rem]"
+                  disabled={csvBusy || rangeInvalid || !filterKey.enabled}
+                  onClick={() => void onExportSkillHierarchyCsv()}
+                >
+                  <DownloadSimple size={18} weight="duotone" aria-hidden className="mr-1.5 inline" />
+                  Exportar CSV
+                </Button>
+              }
+            >
+              {skillHierarchy.isLoading ? <p className="font-ui text-sm text-bloom-aubergine/60">Carregando…</p> : null}
+              {skillHierarchy.isError ? (
+                <p className="font-ui text-sm text-red-700">
+                  {skillHierarchy.error instanceof ApiError ? skillHierarchy.error.message : "Erro ao carregar habilidades."}
+                </p>
+              ) : null}
+              {skillHierarchy.data ? (
+                <>
+                  <p className="mb-4 font-ui text-[11px] text-bloom-aubergine/50">
+                    Período: {formatPtBrNumericDate(skillHierarchy.data.from)} —{" "}
+                    {formatPtBrNumericDate(skillHierarchy.data.to)}
+                  </p>
+                  <MetricsHierarchyDrilldown
+                    roots={skillHierarchyNodes}
+                    emptyLabel="Sem acessos em habilidades no período."
+                  />
+                </>
+              ) : null}
+            </Panel>
+          </div>
+        </FadeIn>
 
         <FadeIn delay={0.1}>
           <div className="flex items-center gap-3 rounded-[1.25rem] border border-bloom-aubergine/12 bg-bloom-aubergine/[0.06] px-4 py-4 font-ui text-[13px] font-bold text-bloom-aubergine/65">
@@ -790,7 +886,7 @@ export function MetricsPage() {
               <Lock size={18} weight="duotone" aria-hidden />
             </span>
             <span>
-              Acesso restrito ao painel administrativo. Métricas sempre agregadas, anonimizadas e filtradas por limiar mínimo.
+              Acesso restrito ao painel administrativo. Métricas sempre agregadas e anonimizadas.
             </span>
           </div>
         </FadeIn>

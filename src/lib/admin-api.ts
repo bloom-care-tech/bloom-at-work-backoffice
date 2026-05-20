@@ -760,9 +760,54 @@ export async function fetchContentRanking(
     period: string;
     from: string;
     to: string;
-    suppressionMinCount: number;
     rows: { contentType: string; contentId: string; contentTitle: string; count: number }[];
   }>(`/admin/metricas/content-ranking${q({ period, from, to, companyId, role })}`, { auth: true });
+}
+
+export async function fetchWaveEngagementHierarchy(
+  from?: string,
+  to?: string,
+  companyId?: string,
+  role?: MetricsHubRoleFilter,
+) {
+  return apiFetch<{
+    from: string;
+    to: string;
+    waves: {
+      waveId: string;
+      title: string;
+      count: number;
+      sortOrder: number;
+      modules: {
+        moduleId: string;
+        title: string;
+        count: number;
+        sortOrder: number;
+        contents: { contentId: string; title: string; kind: string; count: number; sortOrder: number }[];
+      }[];
+    }[];
+  }>(`/admin/metricas/waves/hierarchy${q({ from, to, companyId, role })}`, { auth: true });
+}
+
+export async function fetchSkillEngagementHierarchy(
+  from?: string,
+  to?: string,
+  companyId?: string,
+  role?: MetricsHubRoleFilter,
+) {
+  return apiFetch<{
+    from: string;
+    to: string;
+    skills: {
+      skillId: string;
+      title: string;
+      slug: string;
+      count: number;
+      sortOrder: number;
+      pageCount: number;
+      items: { itemId: string; title: string; count: number; sortOrder: number }[];
+    }[];
+  }>(`/admin/metricas/skills/hierarchy${q({ from, to, companyId, role })}`, { auth: true });
 }
 
 export async function fetchEngagementMetrics(
@@ -774,7 +819,6 @@ export async function fetchEngagementMetrics(
   return apiFetch<{
     from: string;
     to: string;
-    suppressionMinCount: number;
     wave: { contentId: string; contentTitle: string; count: number }[];
     waveModule: { contentId: string; contentTitle: string; count: number }[];
     skillItem: { contentId: string; contentTitle: string; count: number }[];
@@ -851,6 +895,30 @@ export async function downloadEngagementMetricsCsv(
   await downloadAdminMetricsCsv(
     `/admin/metricas/engagement/export${q({ from, to, companyId, role })}`,
     "engagement.csv",
+  );
+}
+
+export async function downloadWaveEngagementHierarchyCsv(
+  from?: string,
+  to?: string,
+  companyId?: string,
+  role?: MetricsHubRoleFilter,
+): Promise<void> {
+  await downloadAdminMetricsCsv(
+    `/admin/metricas/waves/hierarchy/export${q({ from, to, companyId, role })}`,
+    "waves-hierarchy.csv",
+  );
+}
+
+export async function downloadSkillEngagementHierarchyCsv(
+  from?: string,
+  to?: string,
+  companyId?: string,
+  role?: MetricsHubRoleFilter,
+): Promise<void> {
+  await downloadAdminMetricsCsv(
+    `/admin/metricas/skills/hierarchy/export${q({ from, to, companyId, role })}`,
+    "skills-hierarchy.csv",
   );
 }
 
