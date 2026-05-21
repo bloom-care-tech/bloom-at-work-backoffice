@@ -47,6 +47,39 @@ function PreviewPdfLink({ rawHref }: { rawHref: string }) {
   );
 }
 
+function PreviewArticleHtmlEmbed({ title, rawSrc, displayMode }: { title: string; rawSrc: string; displayMode: unknown }) {
+  const { src, loading, error } = useHostedMediaUrl(rawSrc);
+  const openInNewTab = displayMode === "new_tab";
+  if (loading) {
+    return <p className="font-ui text-sm text-bloom-aubergine/55 italic">A preparar HTML…</p>;
+  }
+  if (error || !src) {
+    return <p className="font-ui text-sm text-bloom-aubergine/55">HTML indisponível.</p>;
+  }
+  if (openInNewTab) {
+    return (
+      <a
+        href={src}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-2 font-ui text-sm bg-bloom-aubergine text-bloom-cream px-4 py-2.5 rounded-full hover:bg-bloom-garnet transition-colors"
+      >
+        Abrir HTML
+      </a>
+    );
+  }
+  return (
+    <div className="aspect-[4/5] md:aspect-[16/10] w-full overflow-hidden rounded-lg bg-bloom-aubergine/5 border border-bloom-aubergine/10">
+      <iframe
+        src={src}
+        title={title}
+        className="w-full h-full min-h-[420px] border-0"
+        sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-scripts"
+      />
+    </div>
+  );
+}
+
 const PURIFY_OPTS: DOMPurify.Config = {
   USE_PROFILES: { html: true },
   ADD_ATTR: ["target", "rel", "data-type", "data-checked", "colspan", "rowspan", "colwidth", "class"],
@@ -122,6 +155,7 @@ function shouldShowDialogDescription(kind: WaveContentKindApi, payload: Record<s
     return false;
   }
   if (kind === "article") {
+    if (typeof payload.htmlUrl === "string" && payload.htmlUrl.trim()) return false;
     const html = typeof payload.bodyHtml === "string" ? payload.bodyHtml : "";
     return !htmlHasVisibleText(html);
   }
@@ -196,6 +230,15 @@ function PreviewBody({
 
       {payload && kind === "article" && (
         <div className="space-y-3">
+          {typeof payload.htmlUrl === "string" && payload.htmlUrl.trim() ? (
+            <>
+              {payloadDescription(payload).trim() && (
+                <p className="font-ui text-sm text-bloom-aubergine/75 leading-relaxed">{payloadDescription(payload)}</p>
+              )}
+              <PreviewArticleHtmlEmbed title={title} rawSrc={payload.htmlUrl.trim()} displayMode={payload.displayMode} />
+            </>
+          ) : (
+            <>
           {payloadDescription(payload).trim() && htmlHasVisibleText(typeof payload.bodyHtml === "string" ? payload.bodyHtml : "") && (
             <p className="font-ui text-sm text-bloom-aubergine/75 leading-relaxed">{payloadDescription(payload)}</p>
           )}
@@ -249,6 +292,8 @@ function PreviewBody({
                 );
               })()
             : null}
+            </>
+          )}
         </div>
       )}
 

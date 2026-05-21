@@ -85,7 +85,30 @@ export function extractArticleEditorHtml(payload: Record<string, unknown>): stri
   return "<p></p>";
 }
 
-const ARTICLE_STRIP_KEYS = ["bodyHtml", "paragrafos", "body", "description", "descricao", "secoesArtigo"];
+export type ArticleFormat = "editor" | "html";
+
+export function articleFormatFromPayload(payload: Record<string, unknown>): ArticleFormat {
+  if (payload.articleFormat === "html" || payload.format === "html") return "html";
+  if (typeof payload.htmlUrl === "string" && payload.htmlUrl.trim()) return "html";
+  return "editor";
+}
+
+export function articleHtmlUrlFromPayload(payload: Record<string, unknown>): string {
+  return typeof payload.htmlUrl === "string" ? payload.htmlUrl : "";
+}
+
+const ARTICLE_STRIP_KEYS = [
+  "bodyHtml",
+  "paragrafos",
+  "body",
+  "description",
+  "descricao",
+  "secoesArtigo",
+  "articleFormat",
+  "format",
+  "htmlUrl",
+  "displayMode",
+];
 
 export function articleExtrasFromPayload(payload: Record<string, unknown>): Record<string, unknown> {
   return omitKeys(payload, ARTICLE_STRIP_KEYS);

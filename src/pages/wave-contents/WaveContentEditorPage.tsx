@@ -27,6 +27,8 @@ import { WaveArticleTinyMceEditor } from "@/pages/wave-contents/WaveArticleTinyM
 import { WaveContentPreviewDialog } from "@/pages/wave-contents/WaveContentPreview";
 import {
   articleExtrasFromPayload,
+  articleFormatFromPayload,
+  articleHtmlUrlFromPayload,
   buildReferenciasForApi,
   emptyRefRow,
   extractArticleEditorHtml,
@@ -39,16 +41,27 @@ import {
   toolkitExtrasFromPayload,
   toolkitItensFromPayload,
   toolkitSectionTituloFromPayload,
+  type ArticleFormat,
   type RefFormRow,
 } from "@/pages/wave-contents/wave-content-editor-payload";
 
 const inputCls =
   "w-full bg-bloom-cream-deep border border-bloom-aubergine/10 rounded-xl px-4 py-3 font-ui text-sm text-bloom-aubergine placeholder:text-bloom-aubergine/40 focus:outline-none focus:border-bloom-garnet transition-colors duration-260 ease-bloom";
 
+function articleExtrasForHtmlFormat(extras: Record<string, unknown>): Record<string, unknown> {
+  const next = { ...extras };
+  delete next.expertId;
+  delete next.quote;
+  delete next.author;
+  return next;
+}
+
 function buildPayload(
   kind: WaveContentKindApi,
   ctx: {
     articleHtml: string;
+    articleFormat: ArticleFormat;
+    articleHtmlUrl: string;
     articleExtras: Record<string, unknown>;
     articleDescription: string;
     mediaUrl: string;
@@ -69,7 +82,21 @@ function buildPayload(
   switch (kind) {
     case "article": {
       const d = ctx.articleDescription.trim();
-      return { ...ctx.articleExtras, bodyHtml: ctx.articleHtml, ...(d ? { description: d } : {}) };
+      if (ctx.articleFormat === "html") {
+        return {
+          ...articleExtrasForHtmlFormat(ctx.articleExtras),
+          articleFormat: "html",
+          htmlUrl: ctx.articleHtmlUrl.trim(),
+          displayMode: "iframe",
+          ...(d ? { description: d } : {}),
+        };
+      }
+      return {
+        ...ctx.articleExtras,
+        articleFormat: "editor",
+        bodyHtml: ctx.articleHtml,
+        ...(d ? { description: d } : {}),
+      };
     }
     case "video": {
       const d = ctx.mediaDescription.trim();
@@ -160,7 +187,9 @@ export function WaveContentEditorPage() {
   const [isNewFlag, setIsNewFlag] = useState(false);
   const [published, setPublished] = useState(true);
 
+  const [articleFormat, setArticleFormat] = useState<ArticleFormat>("editor");
   const [articleHtml, setArticleHtml] = useState("<p></p>");
+  const [articleHtmlUrl, setArticleHtmlUrl] = useState("");
   const [articleDescription, setArticleDescription] = useState("");
   const [articleExtras, setArticleExtras] = useState<Record<string, unknown>>({});
   const [articleEditorNonce, setArticleEditorNonce] = useState(0);
@@ -178,7 +207,9 @@ export function WaveContentEditorPage() {
 
   const [showPreview, setShowPreview] = useState(false);
   const [mediaUploading, setMediaUploading] = useState(false);
+  const [articleHtmlUploading, setArticleHtmlUploading] = useState(false);
   const mediaFileInputRef = useRef<HTMLInputElement>(null);
+  const articleHtmlFileInputRef = useRef<HTMLInputElement>(null);
 
   const prevKindRef = useRef<WaveContentKindApi | null>(null);
 
@@ -195,7 +226,9 @@ export function WaveContentEditorPage() {
     if (prev === kind) return;
     prevKindRef.current = kind;
     if (kind === "article") {
+      setArticleFormat("editor");
       setArticleHtml("<p></p>");
+      setArticleHtmlUrl("");
       setArticleDescription("");
       setArticleExtras({});
       setArticleEditorNonce((n) => n + 1);
@@ -232,7 +265,9 @@ export function WaveContentEditorPage() {
     setPublished(Boolean(data.publishedAt));
 
     if (k === "article") {
+      setArticleFormat(articleFormatFromPayload(p));
       setArticleHtml(extractArticleEditorHtml(p));
+      setArticleHtmlUrl(articleHtmlUrlFromPayload(p));
       setArticleDescription(mediaDescriptionFromPayload(p));
       setArticleExtras(articleExtrasFromPayload(p));
       setArticleEditorNonce((n) => n + 1);
@@ -260,6 +295,8 @@ export function WaveContentEditorPage() {
     try {
       const payload = buildPayload(kind, {
         articleHtml,
+        articleFormat,
+        articleHtmlUrl,
         articleExtras,
         articleDescription,
         mediaUrl,
@@ -287,6 +324,8 @@ export function WaveContentEditorPage() {
   }, [
     kind,
     articleHtml,
+    articleFormat,
+    articleHtmlUrl,
     articleExtras,
     articleDescription,
     mediaUrl,
@@ -338,6 +377,8 @@ export function WaveContentEditorPage() {
       try {
         payload = buildPayload(kind, {
           articleHtml,
+          articleFormat,
+          articleHtmlUrl,
           articleExtras,
           articleDescription,
           mediaUrl,
@@ -363,6 +404,9 @@ export function WaveContentEditorPage() {
       }
       if ((kind === "audio" || kind === "pdf") && !mediaUrl.trim()) {
         throw new Error("Informe uma URL externa ou envie um ficheiro.");
+      }
+      if (kind === "article" && articleFormat === "html" && !articleHtmlUrl.trim()) {
+        throw new Error("Informe uma URL externa ou envie um ficheiro HTML.");
       }
       if (kind === "exercise" && !exerciseFormUrl.trim()) {
         throw new Error("Informe a URL HTTPS do formulário externo.");
@@ -415,6 +459,22 @@ export function WaveContentEditorPage() {
     }
   }
 
+  async function onArticleHtmlFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || kind !== "article" || articleFormat !== "html") return;
+    setArticleHtmlUploading(true);
+    try {
+      const { url } = await uploadEditorialMediaAsset(file, { context: "wave", kind: "html" });
+      setArticleHtmlUrl(url);
+      toast("Ficheiro HTML enviado. O endereço foi preenchido automaticamente.");
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Falha ao enviar o ficheiro HTML.");
+    } finally {
+      setArticleHtmlUploading(false);
+    }
+  }
+
   if (!ondaId || !moduloId || (!isNew && !conteudoId)) return null;
 
   const mediaLabel =
@@ -427,7 +487,7 @@ export function WaveContentEditorPage() {
         <WaveHierarchyBreadcrumb items={breadcrumbs} />
         <h1 className="font-serif-display text-3xl text-bloom-aubergine mt-1">{isNew ? "Novo conteúdo" : "Editar conteúdo"}</h1>
         <p className="font-ui text-sm text-bloom-aubergine/65 mt-1">
-          Artigos: corpo em HTML (TinyMCE). Exercício: URL HTTPS do formulário (Typeform, Tally, etc.). Vídeo: URL. Áudio/PDF: URL ou envio; referências: tabela; toolkit: lista de itens (campos{" "}
+          Artigos: Editor (TinyMCE) ou HTML embutido por URL/envio. Exercício: URL HTTPS do formulário (Typeform, Tally, etc.). Vídeo: URL. Áudio/PDF: URL ou envio; referências: tabela; toolkit: lista de itens (campos{" "}
           <code className="text-[11px]">kind</code>, <code className="text-[11px]">titulo</code>, <code className="text-[11px]">toolkit</code>
           ).
         </p>
@@ -465,7 +525,7 @@ export function WaveContentEditorPage() {
             </div>
 
             {kind === "article" && (
-              <div className="space-y-4" data-article-editor="tinymce">
+              <div className="space-y-4" data-article-editor={articleFormat}>
                 <div className="space-y-2">
                   <Label className="font-ui text-bloom-aubergine/80">Descrição</Label>
                   <textarea
@@ -480,76 +540,144 @@ export function WaveContentEditorPage() {
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <Label className="font-ui text-bloom-aubergine/80">Especialista (autor do artigo)</Label>
+                  <Label className="font-ui text-bloom-aubergine/80">Formato</Label>
                   <select
                     className={inputCls}
-                    value={typeof articleExtras.expertId === "string" ? articleExtras.expertId : ""}
+                    value={articleFormat}
                     onChange={(e) => {
-                      const v = e.target.value;
-                      setArticleExtras((prev) => {
-                        const next = { ...prev };
-                        if (!v) delete next.expertId;
-                        else next.expertId = v;
-                        return next;
-                      });
+                      const nextFormat = e.target.value as ArticleFormat;
+                      setArticleFormat(nextFormat);
+                      if (nextFormat === "html") {
+                        setArticleExtras(articleExtrasForHtmlFormat);
+                      }
                     }}
                   >
-                    <option value="">Nenhum</option>
-                    {(expertsForArticles?.items ?? []).map((ex) => (
-                      <option key={ex.id} value={ex.id}>
-                        {ex.name} — {ex.specialty}
-                      </option>
-                    ))}
+                    <option value="editor">Editor</option>
+                    <option value="html">HTML</option>
                   </select>
                   <p className="font-ui text-xs text-bloom-aubergine/55">
-                    Gravado como <code className="text-[11px]">expertId</code> no payload.{" "}
-                    <Link to="/especialistas" className="text-bloom-garnet hover:underline">
-                      Gerir especialistas
-                    </Link>
+                    <strong className="font-medium text-bloom-aubergine/75">Editor</strong> mantém o artigo editável aqui.{" "}
+                    <strong className="font-medium text-bloom-aubergine/75">HTML</strong> usa um ficheiro ou URL externa embutida no app.
                   </p>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {articleFormat === "editor" && (
+                  <>
+                    <div className="space-y-2">
+                      <Label className="font-ui text-bloom-aubergine/80">Especialista (autor do artigo)</Label>
+                      <select
+                        className={inputCls}
+                        value={typeof articleExtras.expertId === "string" ? articleExtras.expertId : ""}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setArticleExtras((prev) => {
+                            const next = { ...prev };
+                            if (!v) delete next.expertId;
+                            else next.expertId = v;
+                            return next;
+                          });
+                        }}
+                      >
+                        <option value="">Nenhum</option>
+                        {(expertsForArticles?.items ?? []).map((ex) => (
+                          <option key={ex.id} value={ex.id}>
+                            {ex.name} — {ex.specialty}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="font-ui text-xs text-bloom-aubergine/55">
+                        Gravado como <code className="text-[11px]">expertId</code> no payload.{" "}
+                        <Link to="/especialistas" className="text-bloom-garnet hover:underline">
+                          Gerir especialistas
+                        </Link>
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="font-ui text-bloom-aubergine/80">Citação em destaque (opcional)</Label>
+                        <textarea
+                          className={`${inputCls} min-h-[72px] resize-y`}
+                          value={typeof articleExtras.quote === "string" ? articleExtras.quote : ""}
+                          onChange={(e) =>
+                            setArticleExtras((prev) => ({ ...prev, quote: e.target.value }))
+                          }
+                          placeholder="Texto curto da citação"
+                          rows={2}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="font-ui text-bloom-aubergine/80">Autor da citação (opcional)</Label>
+                        <input
+                          className={inputCls}
+                          value={typeof articleExtras.author === "string" ? articleExtras.author : ""}
+                          onChange={(e) =>
+                            setArticleExtras((prev) => ({ ...prev, author: e.target.value }))
+                          }
+                          placeholder="Nome ou fonte"
+                        />
+                      </div>
+                    </div>
+                    <p className="font-ui text-xs text-bloom-aubergine/55 -mt-2">
+                      Gravados como <code className="text-[11px]">quote</code> e <code className="text-[11px]">author</code> no payload. Se{" "}
+                      <code className="text-[11px]">author</code> estiver vazio, o app usa o especialista do artigo como &quot;Nome,
+                      Especialidade&quot;. Não é possível ter <code className="text-[11px]">author</code> sem <code className="text-[11px]">quote</code>.
+                    </p>
+                  </>
+                )}
+                {articleFormat === "editor" ? (
                   <div className="space-y-2">
-                    <Label className="font-ui text-bloom-aubergine/80">Citação em destaque (opcional)</Label>
-                    <textarea
-                      className={`${inputCls} min-h-[72px] resize-y`}
-                      value={typeof articleExtras.quote === "string" ? articleExtras.quote : ""}
-                      onChange={(e) =>
-                        setArticleExtras((prev) => ({ ...prev, quote: e.target.value }))
-                      }
-                      placeholder="Texto curto da citação"
-                      rows={2}
+                    <Label className="font-ui text-bloom-aubergine/80">Corpo do artigo</Label>
+                    <p className="font-ui text-xs text-bloom-aubergine/55">
+                      Gravado como <code className="text-[11px]">bodyHtml</code>. Edição visual e código-fonte estão no editor (botão &quot;code&quot; / fullscreen).
+                    </p>
+                    <WaveArticleTinyMceEditor
+                      editorKey={`article-${id ?? "new"}-${articleEditorNonce}`}
+                      value={articleHtml}
+                      onChange={setArticleHtml}
+                      disabled={save.isPending}
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label className="font-ui text-bloom-aubergine/80">Autor da citação (opcional)</Label>
-                    <input
-                      className={inputCls}
-                      value={typeof articleExtras.author === "string" ? articleExtras.author : ""}
-                      onChange={(e) =>
-                        setArticleExtras((prev) => ({ ...prev, author: e.target.value }))
-                      }
-                      placeholder="Nome ou fonte"
-                    />
+                ) : (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label className="font-ui text-bloom-aubergine/80">HTML URL</Label>
+                      <input
+                        className={inputCls}
+                        value={articleHtmlUrl}
+                        onChange={(e) => setArticleHtmlUrl(e.target.value)}
+                        placeholder="https://… (URL externa) ou use o envio abaixo"
+                        disabled={articleHtmlUploading}
+                      />
+                      <div className="flex flex-wrap items-center gap-3 pt-1">
+                        <input
+                          ref={articleHtmlFileInputRef}
+                          type="file"
+                          className="sr-only"
+                          accept="text/html,.html,.htm"
+                          aria-hidden
+                          tabIndex={-1}
+                          onChange={onArticleHtmlFileSelected}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="rounded-full"
+                          disabled={save.isPending || articleHtmlUploading}
+                          onClick={() => articleHtmlFileInputRef.current?.click()}
+                        >
+                          {articleHtmlUploading ? "A enviar…" : "Enviar ficheiro HTML"}
+                        </Button>
+                        <p className="font-ui text-xs text-bloom-aubergine/55">
+                          Após o envio, o campo acima é preenchido com o endereço público do ficheiro (
+                          <code className="text-[11px]">htmlUrl</code>).
+                        </p>
+                      </div>
+                    </div>
+                    <p className="font-ui text-xs text-bloom-aubergine/55">
+                      Gravado como <code className="text-[11px]">articleFormat=html</code>,{" "}
+                      <code className="text-[11px]">htmlUrl</code> e exibido sempre embutido no app.
+                    </p>
                   </div>
-                </div>
-                <p className="font-ui text-xs text-bloom-aubergine/55 -mt-2">
-                  Gravados como <code className="text-[11px]">quote</code> e <code className="text-[11px]">author</code> no payload. Se{" "}
-                  <code className="text-[11px]">author</code> estiver vazio, o app usa o especialista do artigo como &quot;Nome,
-                  Especialidade&quot;. Não é possível ter <code className="text-[11px]">author</code> sem <code className="text-[11px]">quote</code>.
-                </p>
-                <div className="space-y-2">
-                  <Label className="font-ui text-bloom-aubergine/80">Corpo do artigo</Label>
-                  <p className="font-ui text-xs text-bloom-aubergine/55">
-                    Gravado como <code className="text-[11px]">bodyHtml</code>. Edição visual e código-fonte estão no editor (botão &quot;code&quot; / fullscreen).
-                  </p>
-                  <WaveArticleTinyMceEditor
-                    editorKey={`article-${id ?? "new"}-${articleEditorNonce}`}
-                    value={articleHtml}
-                    onChange={setArticleHtml}
-                    disabled={save.isPending}
-                  />
-                </div>
+                )}
               </div>
             )}
 

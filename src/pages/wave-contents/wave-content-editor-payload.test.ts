@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  articleFormatFromPayload,
+  articleHtmlUrlFromPayload,
   extractArticleEditorHtml,
   payloadRecordFromUnknown,
   scientificRefsExtrasFromPayload,
@@ -45,6 +47,22 @@ describe("extractArticleEditorHtml", () => {
     expect(html).toContain("Line one.");
     expect(html).toContain("<ol>");
     expect(html).toContain("<li>");
+  });
+});
+
+describe("article HTML payload helpers", () => {
+  it("defaults existing article payloads to editor format", () => {
+    expect(articleFormatFromPayload({ bodyHtml: "<p>A</p>" })).toBe("editor");
+  });
+
+  it("detects HTML article payloads and reads their URL/display mode", () => {
+    const payload = {
+      articleFormat: "html",
+      htmlUrl: "https://cdn.example.com/article.html",
+      displayMode: "new_tab",
+    };
+    expect(articleFormatFromPayload(payload)).toBe("html");
+    expect(articleHtmlUrlFromPayload(payload)).toBe("https://cdn.example.com/article.html");
   });
 });
 

@@ -460,7 +460,7 @@ export type EditorialMediaUploadContext = "wave" | "document_map" | "skills" | "
 
 export async function uploadEditorialMediaAsset(
   file: File,
-  options: { context: EditorialMediaUploadContext; kind: "audio" | "pdf" | "image" },
+  options: { context: EditorialMediaUploadContext; kind: "audio" | "pdf" | "image" | "html" },
 ) {
   const form = new FormData();
   form.append("file", file);
