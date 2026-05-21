@@ -19,6 +19,14 @@ export interface CompanyDto {
   updatedAt: string;
 }
 
+export interface CompanyUserOrgDto {
+  vp: string | null;
+  seniorDirectorate: string | null;
+  management: string | null;
+  subManagement: string | null;
+  employeeNumber: string | null;
+}
+
 export interface UserListItemDto {
   id: string;
   email: string;
@@ -30,6 +38,12 @@ export interface UserListItemDto {
   companyName: string | null;
   firstAccessCompleted: boolean;
   createdAt: string;
+  vp?: string | null;
+  seniorDirectorate?: string | null;
+  management?: string | null;
+  subManagement?: string | null;
+  employeeNumber?: string | null;
+  updatedAt?: string;
 }
 
 export interface SignupAccessListItemDto {
@@ -130,7 +144,7 @@ export async function createCompanyUser(body: {
   role: string;
   name?: string | null;
   displayName?: string | null;
-}) {
+} & Partial<CompanyUserOrgDto>) {
   return apiFetch<{ id: string }>(`/admin/usuarios`, { method: "POST", auth: true, body: JSON.stringify(body) });
 }
 
@@ -155,7 +169,7 @@ export async function fetchUser(id: string) {
 
 export async function updateUser(
   id: string,
-  body: Partial<{ name: string | null; displayName: string | null; role: string; status: string }>,
+  body: Partial<{ name: string | null; displayName: string | null; role: string; status: string } & CompanyUserOrgDto>,
 ) {
   return apiFetch<{ ok: true }>(`/admin/usuarios/${id}`, { method: "PATCH", auth: true, body: JSON.stringify(body) });
 }

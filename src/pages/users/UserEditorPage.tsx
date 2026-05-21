@@ -6,6 +6,12 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { ApiError } from "@/lib/auth/api-client";
 import { fetchUser, offboardUser, updateUser } from "@/lib/admin-api";
+import {
+  CompanyUserOrgFields,
+  companyUserOrgFormFromUser,
+  companyUserOrgPayload,
+  emptyCompanyUserOrgForm,
+} from "@/pages/users/company-user-org-fields";
 
 const inputCls =
   "w-full bg-bloom-cream-deep border border-bloom-aubergine/10 rounded-xl px-4 py-3 font-ui text-sm text-bloom-aubergine placeholder:text-bloom-aubergine/40 focus:outline-none focus:border-bloom-garnet transition-colors duration-260 ease-bloom";
@@ -26,6 +32,7 @@ export function UserEditorPage() {
   const [displayName, setDisplayName] = useState("");
   const [role, setRole] = useState<string>("colaborador");
   const [status, setStatus] = useState<string>("ativo");
+  const [orgFields, setOrgFields] = useState(emptyCompanyUserOrgForm);
 
   const isPlatformAdmin = data?.role === "admin";
 
@@ -46,6 +53,7 @@ export function UserEditorPage() {
     setDisplayName(data.displayName ?? "");
     setRole(data.role ?? "colaborador");
     setStatus(data.status ?? "ativo");
+    setOrgFields(companyUserOrgFormFromUser(data));
   }, [data]);
 
   const offboard = useMutation({
@@ -73,6 +81,7 @@ export function UserEditorPage() {
               displayName: displayName.trim() || null,
               role,
               status,
+              ...companyUserOrgPayload(orgFields),
             },
       ),
     onSuccess: () => {
@@ -148,6 +157,9 @@ export function UserEditorPage() {
                 </select>
               )}
             </div>
+            {!isPlatformAdmin ? (
+              <CompanyUserOrgFields value={orgFields} onChange={setOrgFields} inputCls={inputCls} />
+            ) : null}
             <div className="flex flex-wrap gap-3 pt-2">
               <PillButton type="submit" disabled={save.isPending}>
                 {save.isPending ? "Salvando…" : "Salvar"}

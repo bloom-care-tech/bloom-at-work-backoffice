@@ -8,6 +8,11 @@ import { toast } from "@/components/ui/sonner";
 import { ApiError } from "@/lib/auth/api-client";
 import { useAdminCompaniesForSelect } from "@/hooks/use-admin-companies-select";
 import { createCompanyUser } from "@/lib/admin-api";
+import {
+  CompanyUserOrgFields,
+  companyUserOrgPayload,
+  emptyCompanyUserOrgForm,
+} from "@/pages/users/company-user-org-fields";
 
 const inputCls =
   "w-full bg-bloom-cream-deep border border-bloom-aubergine/10 rounded-xl px-4 py-3 font-ui text-sm text-bloom-aubergine placeholder:text-bloom-aubergine/40 focus:outline-none focus:border-bloom-garnet transition-colors duration-260 ease-bloom";
@@ -23,6 +28,7 @@ export function NewCompanyUserPage() {
   const [role, setRole] = useState("colaborador");
   const [name, setName] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [orgFields, setOrgFields] = useState(emptyCompanyUserOrgForm);
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [companyError, setCompanyError] = useState("");
@@ -36,6 +42,7 @@ export function NewCompanyUserPage() {
         role,
         name: name.trim() || null,
         displayName: displayName.trim() || null,
+        ...companyUserOrgPayload(orgFields),
       }),
     onSuccess: (res) => {
       toast("Usuário criado.");
@@ -148,6 +155,7 @@ export function NewCompanyUserPage() {
             <Label className="font-ui text-bloom-aubergine/80">Como prefere ser chamado (opcional)</Label>
             <input className={inputCls} value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
           </div>
+          <CompanyUserOrgFields value={orgFields} onChange={setOrgFields} inputCls={inputCls} />
           <div className="flex flex-wrap gap-3 pt-2">
             <PillButton type="submit" disabled={createUser.isPending}>
               {createUser.isPending ? "Criando…" : "Criar usuário"}
