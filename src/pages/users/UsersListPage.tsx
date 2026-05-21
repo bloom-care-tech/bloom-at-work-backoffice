@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { PencilSimple, Plus } from "@phosphor-icons/react";
+import { PencilSimple, Plus, UploadSimple } from "@phosphor-icons/react";
 import { FadeIn, Eyebrow } from "@/components/bloom/primitives";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { ApiError } from "@/lib/auth/api-client";
 import { filterSelectCls } from "@/lib/backoffice-filters";
 import { fetchUsersPage, updateUser } from "@/lib/admin-api";
 import { useBackofficeSession } from "@/lib/backoffice-session";
+import { UserBulkImportDialog } from "@/pages/users/UserBulkImportDialog";
 
 export type UsersListSection = "company" | "platform";
 
@@ -32,6 +33,7 @@ export function UsersListPage({ section }: { section: UsersListSection }) {
   const [companyId, setCompanyId] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
   const [appliedCompanyId, setAppliedCompanyId] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
 
   const { data: companiesSelect, isLoading: companiesLoading } = useAdminCompaniesForSelect();
 
@@ -90,12 +92,25 @@ export function UsersListPage({ section }: { section: UsersListSection }) {
                 : "Contas com perfil admin da operadora Bloom. O e-mail não pode ser alterado aqui."}
             </p>
           </div>
-          <Button className="rounded-full bg-bloom-garnet hover:bg-bloom-garnet/90 shrink-0" asChild>
-            <Link to={isCompany ? "/usuarios/novo" : "/administradores/novo"}>
-              <Plus size={18} className="mr-2 inline" weight="bold" />
-              {isCompany ? "Adicionar usuário" : "Adicionar administrador"}
-            </Link>
-          </Button>
+          <div className="flex flex-wrap gap-2 shrink-0">
+            {isCompany && (
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-full border-bloom-aubergine/20 font-ui"
+                onClick={() => setImportOpen(true)}
+              >
+                <UploadSimple size={18} className="mr-2" />
+                Importar usuários
+              </Button>
+            )}
+            <Button className="rounded-full bg-bloom-garnet hover:bg-bloom-garnet/90" asChild>
+              <Link to={isCompany ? "/usuarios/novo" : "/administradores/novo"}>
+                <Plus size={18} className="mr-2 inline" weight="bold" />
+                {isCompany ? "Adicionar usuário" : "Adicionar administrador"}
+              </Link>
+            </Button>
+          </div>
         </div>
       </FadeIn>
       <FadeIn delay={0.05}>
@@ -266,6 +281,15 @@ export function UsersListPage({ section }: { section: UsersListSection }) {
           )}
         </div>
       </FadeIn>
+      {isCompany && (
+        <UserBulkImportDialog
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          companies={companiesSelect?.items}
+          companiesLoading={companiesLoading}
+          defaultCompanyId={companyId || appliedCompanyId}
+        />
+      )}
     </div>
   );
 }

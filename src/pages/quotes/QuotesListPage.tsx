@@ -1,7 +1,7 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { Plus, PencilSimple, Trash, DownloadSimple, UploadSimple } from "@phosphor-icons/react";
+import { Plus, PencilSimple, Trash, UploadSimple } from "@phosphor-icons/react";
 import { FadeIn, Eyebrow, PillButton } from "@/components/bloom/primitives";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,11 +10,9 @@ import { toast } from "@/components/ui/sonner";
 import { ApiError } from "@/lib/auth/api-client";
 import { useAdminCompaniesForSelect } from "@/hooks/use-admin-companies-select";
 import { filterInputCls, filterSelectCls } from "@/lib/backoffice-filters";
-import { bulkCreateQuotes, deleteQuote, downloadQuoteTemplateXlsx, fetchQuotesPage } from "@/lib/admin-api";
-import { triggerBlobDownload } from "@/lib/download-blob";
-import { parseQuoteBulkXlsx, QUOTE_BULK_IMPORT_MAX_ROWS } from "@/lib/parse-quote-bulk-xlsx";
-import type { BulkQuoteImportPayload } from "@/lib/quote-bulk-import.types";
+import { deleteQuote, fetchQuotesPage } from "@/lib/admin-api";
 import { formatPtBrNumericDateFromYmd, isoYmdToPtBrInput, ptBrInputToIsoYmd } from "@/lib/format-date";
+import { QuoteBulkImportDialog } from "@/pages/quotes/QuoteBulkImportDialog";
 
 type QuoteAudienceFilter = "" | "all" | "leader" | "collaborator";
 
@@ -39,6 +37,7 @@ export function QuotesListPage() {
     from: "",
     to: "",
   });
+  const [importOpen, setImportOpen] = useState(false);
 
   const { data: companiesSelect, isLoading: companiesLoading } = useAdminCompaniesForSelect();
 
@@ -64,80 +63,6 @@ export function QuotesListPage() {
     },
     onError: (e) => toast(e instanceof ApiError ? e.message : "Erro ao desativar."),
   });
-
-  const BULK_BATCH = 80;
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const bulkImport = useMutation({
-    mutationFn: async (rows: BulkQuoteImportPayload[]) => {
-      let created = 0;
-      let skipped = 0;
-      const errors: { index: number; code: string; message: string }[] = [];
-      let offset = 0;
-      for (let i = 0; i < rows.length; i += BULK_BATCH) {
-        const batch = rows.slice(i, i + BULK_BATCH);
-        const r = await bulkCreateQuotes(batch);
-        created += r.created;
-        skipped += r.skipped;
-        for (const err of r.errors) errors.push({ ...err, index: err.index + offset });
-        offset += batch.length;
-      }
-      return { created, skipped, errors };
-    },
-    onSuccess: (r) => {
-      toast(`Importação: ${r.created} criadas, ${r.skipped} ignoradas.`);
-      if (r.errors.length > 0) {
-        const sample = r.errors
-          .slice(0, 5)
-          .map((err) => `Entrada ${err.index + 1}: ${err.message}`)
-          .join(" · ");
-        toast("Algumas linhas falharam", {
-          description: `${sample}${r.errors.length > 5 ? "…" : ""}`,
-        });
-      }
-      void qc.invalidateQueries({ queryKey: ["quotes"] });
-      void qc.invalidateQueries({ queryKey: ["dash"] });
-    },
-    onError: (e) => toast(e instanceof ApiError ? e.message : "Erro ao importar."),
-  });
-
-  const handleQuoteSpreadsheetChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const picked = e.target.files?.[0];
-    e.target.value = "";
-    if (!picked) return;
-    if (!picked.name.toLowerCase().endsWith(".xlsx")) {
-      toast("Use um ficheiro .xlsx.");
-      return;
-    }
-    let buf: ArrayBuffer;
-    try {
-      buf = await picked.arrayBuffer();
-    } catch {
-      toast("Não foi possível ler o ficheiro.");
-      return;
-    }
-    const parsed = await parseQuoteBulkXlsx(buf);
-    if (!parsed.ok) {
-      toast(parsed.message);
-      return;
-    }
-    if (parsed.truncated) {
-      toast("Aviso", {
-        description: `Foram consideradas no máximo ${QUOTE_BULK_IMPORT_MAX_ROWS} linhas; divida o ficheiro para importar o restante.`,
-      });
-    }
-    bulkImport.mutate(parsed.quotes);
-  };
-
-  const download = async () => {
-    try {
-      const blob = await downloadQuoteTemplateXlsx();
-      triggerBlobDownload(blob, null, "importar_quotes_template.xlsx");
-      toast("Download iniciado.");
-    } catch (e) {
-      toast(e instanceof ApiError ? e.message : "Erro no download.");
-    }
-  };
 
   const applyFilters = () => {
     const fromIso = draft.fromText.trim() ? ptBrInputToIsoYmd(draft.fromText.trim()) : "";
@@ -188,32 +113,14 @@ export function QuotesListPage() {
           <p className="font-ui text-sm text-bloom-aubergine/65 mt-1">Frases exibidas no hub, por data e audiência.</p>
         </FadeIn>
         <div className="flex flex-wrap gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            className="sr-only"
-            aria-label="Importar planilha Excel"
-            onChange={(ev) => void handleQuoteSpreadsheetChange(ev)}
-          />
           <Button
             type="button"
             variant="outline"
             className="rounded-full border-bloom-aubergine/20 font-ui"
-            disabled={bulkImport.isPending}
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => setImportOpen(true)}
           >
             <UploadSimple size={18} className="mr-2" />
-            {bulkImport.isPending ? "A importar…" : "Importar planilha"}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="rounded-full border-bloom-aubergine/20 font-ui"
-            onClick={() => void download()}
-          >
-            <DownloadSimple size={18} className="mr-2" />
-            Modelo em planilha
+            Importar frases
           </Button>
           <PillButton asLink="/frases/nova">
             <Plus size={18} weight="bold" />
@@ -419,6 +326,7 @@ export function QuotesListPage() {
           )}
         </div>
       </FadeIn>
+      <QuoteBulkImportDialog open={importOpen} onOpenChange={setImportOpen} />
     </div>
   );
 }

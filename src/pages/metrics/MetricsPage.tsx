@@ -15,9 +15,12 @@ import {
   fetchContentRanking,
   fetchCohortMetrics,
   fetchEngagementMetrics,
+  fetchMetricsOrganizationFilterOptions,
   fetchSkillEngagementHierarchy,
   fetchWaveEngagementHierarchy,
   type MetricsHubRoleFilter,
+  type MetricsOrganizationFilterOptions,
+  type MetricsOrganizationFilters,
 } from "@/lib/admin-api";
 import { MetricsHierarchyDrilldown } from "@/pages/metrics/MetricsHierarchyDrilldown";
 import { skillHierarchyToNodes, waveHierarchyToNodes } from "@/pages/metrics/metrics-hierarchy-mappers";
@@ -54,6 +57,25 @@ const CONTENT_TYPE_LABEL: Record<string, string> = {
   document: "Documento",
   quote: "Bloom do dia",
   other: "Outro",
+};
+
+const ROLE_LABEL: Record<MetricsHubRoleFilter, string> = {
+  lider: "Líder",
+  colaborador: "Colaborador",
+};
+
+const ORGANIZATION_FILTER_LABEL: Record<keyof MetricsOrganizationFilters, string> = {
+  vp: "VP",
+  seniorDirectorate: "Diretoria alta",
+  management: "Gerência",
+  subManagement: "Subgerência",
+};
+
+const EMPTY_ORGANIZATION_FILTER_OPTIONS: MetricsOrganizationFilterOptions = {
+  vp: [],
+  seniorDirectorate: [],
+  management: [],
+  subManagement: [],
 };
 
 function sortByCountDesc<T extends { count: number }>(rows: T[]): T[] {
@@ -152,6 +174,12 @@ export function MetricsPage() {
   const [{ from: dateFrom, to: dateTo }, setRange] = useState(defaultYmdRange);
   const [companyId, setCompanyId] = useState("");
   const [role, setRole] = useState<"" | MetricsHubRoleFilter>("");
+  const [organizationFilters, setOrganizationFilters] = useState<Record<keyof MetricsOrganizationFilters, string>>({
+    vp: "",
+    seniorDirectorate: "",
+    management: "",
+    subManagement: "",
+  });
   const [csvBusy, setCsvBusy] = useState(false);
 
   const companies = useAdminCompaniesForSelect();
@@ -161,6 +189,15 @@ export function MetricsPage() {
   const toIso = `${dateTo}T23:59:59.999Z`;
   const companyParam = companyId || undefined;
   const roleParam = role || undefined;
+  const organizationParams = useMemo(
+    (): MetricsOrganizationFilters => ({
+      vp: organizationFilters.vp.trim() || undefined,
+      seniorDirectorate: organizationFilters.seniorDirectorate.trim() || undefined,
+      management: organizationFilters.management.trim() || undefined,
+      subManagement: organizationFilters.subManagement.trim() || undefined,
+    }),
+    [organizationFilters],
+  );
 
   const filterKey = useMemo(
     () => ({
@@ -168,41 +205,88 @@ export function MetricsPage() {
       toIso,
       companyParam,
       roleParam,
+      organizationParams,
       enabled: !rangeInvalid,
     }),
-    [fromIso, toIso, companyParam, roleParam, rangeInvalid],
+    [fromIso, toIso, companyParam, roleParam, organizationParams, rangeInvalid],
   );
+
+  const organizationFilterOptions = useQuery({
+    queryKey: ["metrics", "organization-filter-options", filterKey],
+    queryFn: () =>
+      fetchMetricsOrganizationFilterOptions(
+        filterKey.fromIso,
+        filterKey.toIso,
+        filterKey.companyParam,
+        filterKey.roleParam,
+        filterKey.organizationParams,
+      ),
+    enabled: filterKey.enabled,
+  });
 
   const ranking = useQuery({
     queryKey: ["metrics", "ranking", filterKey],
     queryFn: () =>
-      fetchContentRanking("month", filterKey.fromIso, filterKey.toIso, filterKey.companyParam, filterKey.roleParam),
+      fetchContentRanking(
+        "month",
+        filterKey.fromIso,
+        filterKey.toIso,
+        filterKey.companyParam,
+        filterKey.roleParam,
+        filterKey.organizationParams,
+      ),
     enabled: filterKey.enabled,
   });
 
   const engagement = useQuery({
     queryKey: ["metrics", "engagement", filterKey],
-    queryFn: () => fetchEngagementMetrics(filterKey.fromIso, filterKey.toIso, filterKey.companyParam, filterKey.roleParam),
+    queryFn: () =>
+      fetchEngagementMetrics(
+        filterKey.fromIso,
+        filterKey.toIso,
+        filterKey.companyParam,
+        filterKey.roleParam,
+        filterKey.organizationParams,
+      ),
     enabled: filterKey.enabled,
   });
 
   const cohorts = useQuery({
     queryKey: ["metrics", "cohorts", filterKey],
-    queryFn: () => fetchCohortMetrics(filterKey.fromIso, filterKey.toIso, filterKey.companyParam, filterKey.roleParam),
+    queryFn: () =>
+      fetchCohortMetrics(
+        filterKey.fromIso,
+        filterKey.toIso,
+        filterKey.companyParam,
+        filterKey.roleParam,
+        filterKey.organizationParams,
+      ),
     enabled: filterKey.enabled,
   });
 
   const waveHierarchy = useQuery({
     queryKey: ["metrics", "waves-hierarchy", filterKey],
     queryFn: () =>
-      fetchWaveEngagementHierarchy(filterKey.fromIso, filterKey.toIso, filterKey.companyParam, filterKey.roleParam),
+      fetchWaveEngagementHierarchy(
+        filterKey.fromIso,
+        filterKey.toIso,
+        filterKey.companyParam,
+        filterKey.roleParam,
+        filterKey.organizationParams,
+      ),
     enabled: filterKey.enabled,
   });
 
   const skillHierarchy = useQuery({
     queryKey: ["metrics", "skills-hierarchy", filterKey],
     queryFn: () =>
-      fetchSkillEngagementHierarchy(filterKey.fromIso, filterKey.toIso, filterKey.companyParam, filterKey.roleParam),
+      fetchSkillEngagementHierarchy(
+        filterKey.fromIso,
+        filterKey.toIso,
+        filterKey.companyParam,
+        filterKey.roleParam,
+        filterKey.organizationParams,
+      ),
     enabled: filterKey.enabled,
   });
 
@@ -222,6 +306,39 @@ export function MetricsPage() {
     return null;
   }, [dateFrom, dateTo]);
 
+  const selectedCompanyName = useMemo(() => {
+    if (!companyId) return "Todas as empresas";
+    return companies.data?.items.find((c) => c.id === companyId)?.name ?? "Empresa selecionada";
+  }, [companies.data?.items, companyId]);
+
+  const activeFilterSummary = useMemo(
+    () => {
+      const organizationSummary = (Object.entries(organizationParams) as [keyof MetricsOrganizationFilters, string | undefined][])
+        .filter(([, value]) => Boolean(value))
+        .map(([key, value]) => `${ORGANIZATION_FILTER_LABEL[key]}: ${value}`);
+      return [
+        `Período: ${formatPtBrNumericDate(fromIso)} até ${formatPtBrNumericDate(toIso)}`,
+        `Empresa: ${selectedCompanyName}`,
+        `Papel: ${role ? ROLE_LABEL[role] : "Todos"}`,
+        ...organizationSummary,
+      ];
+    },
+    [fromIso, organizationParams, role, selectedCompanyName, toIso],
+  );
+
+  const organizationSelectOptions = useMemo(() => {
+    const data = organizationFilterOptions.data ?? EMPTY_ORGANIZATION_FILTER_OPTIONS;
+    return (Object.keys(ORGANIZATION_FILTER_LABEL) as (keyof MetricsOrganizationFilters)[]).reduce(
+      (acc, key) => {
+        const selected = organizationFilters[key].trim();
+        const values = data[key] ?? [];
+        acc[key] = selected && !values.includes(selected) ? [selected, ...values] : values;
+        return acc;
+      },
+      { ...EMPTY_ORGANIZATION_FILTER_OPTIONS },
+    );
+  }, [organizationFilterOptions.data, organizationFilters]);
+
   const applyPreset = (days: 7 | 30) => {
     setRange(presetYmdRange(days));
   };
@@ -230,13 +347,19 @@ export function MetricsPage() {
     setRange(defaultYmdRange());
     setCompanyId("");
     setRole("");
+    setOrganizationFilters({
+      vp: "",
+      seniorDirectorate: "",
+      management: "",
+      subManagement: "",
+    });
   };
 
   const onExportCsv = async () => {
     if (rangeInvalid) return;
     setCsvBusy(true);
     try {
-      await downloadContentRankingCsv("month", fromIso, toIso, companyParam, roleParam);
+      await downloadContentRankingCsv("month", fromIso, toIso, companyParam, roleParam, organizationParams);
       toast("Exportação CSV iniciada.");
     } catch (e) {
       toast(e instanceof ApiError ? e.message : "Não foi possível exportar o ranking.");
@@ -249,7 +372,7 @@ export function MetricsPage() {
     if (rangeInvalid) return;
     setCsvBusy(true);
     try {
-      await downloadEngagementMetricsCsv(fromIso, toIso, companyParam, roleParam);
+      await downloadEngagementMetricsCsv(fromIso, toIso, companyParam, roleParam, organizationParams);
       toast("Exportação CSV iniciada.");
     } catch (e) {
       toast(e instanceof ApiError ? e.message : "Não foi possível exportar o engajamento.");
@@ -262,7 +385,7 @@ export function MetricsPage() {
     if (rangeInvalid) return;
     setCsvBusy(true);
     try {
-      await downloadWaveEngagementHierarchyCsv(fromIso, toIso, companyParam, roleParam);
+      await downloadWaveEngagementHierarchyCsv(fromIso, toIso, companyParam, roleParam, organizationParams);
       toast("Exportação CSV iniciada.");
     } catch (e) {
       toast(e instanceof ApiError ? e.message : "Não foi possível exportar as ondas.");
@@ -275,7 +398,7 @@ export function MetricsPage() {
     if (rangeInvalid) return;
     setCsvBusy(true);
     try {
-      await downloadSkillEngagementHierarchyCsv(fromIso, toIso, companyParam, roleParam);
+      await downloadSkillEngagementHierarchyCsv(fromIso, toIso, companyParam, roleParam, organizationParams);
       toast("Exportação CSV iniciada.");
     } catch (e) {
       toast(e instanceof ApiError ? e.message : "Não foi possível exportar as habilidades.");
@@ -288,7 +411,7 @@ export function MetricsPage() {
     if (rangeInvalid) return;
     setCsvBusy(true);
     try {
-      await downloadCohortMetricsCsv(fromIso, toIso, companyParam, roleParam);
+      await downloadCohortMetricsCsv(fromIso, toIso, companyParam, roleParam, organizationParams);
       toast("Exportação CSV iniciada.");
     } catch (e) {
       toast(e instanceof ApiError ? e.message : "Não foi possível exportar a recorrência.");
@@ -460,11 +583,65 @@ export function MetricsPage() {
                 <option value="colaborador">Colaborador</option>
               </select>
             </div>
+            {(Object.entries(ORGANIZATION_FILTER_LABEL) as [keyof MetricsOrganizationFilters, string][]).map(([key, label]) => (
+              <div key={key} className="min-w-[10rem] flex-1">
+                <Label htmlFor={`metrics-${key}`} className="mb-2 block font-ui text-[12px] font-extrabold text-bloom-aubergine/55">
+                  {label}
+                </Label>
+                <select
+                  id={`metrics-${key}`}
+                  value={organizationFilters[key]}
+                  onChange={(e) => setOrganizationFilters((current) => ({ ...current, [key]: e.target.value }))}
+                  disabled={organizationFilterOptions.isLoading || rangeInvalid}
+                  className={cn(filterSelectCls, "h-11 w-full max-w-none rounded-[0.875rem]")}
+                >
+                  <option value="">
+                    {organizationFilterOptions.isLoading ? "Carregando…" : "Todos"}
+                  </option>
+                  {organizationSelectOptions[key].map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
             <Button type="button" variant="secondary" size="sm" className="h-11 rounded-[0.875rem]" onClick={clearFilters}>
               Limpar
             </Button>
+            {organizationFilterOptions.isError ? (
+              <p className="w-full font-ui text-sm text-red-700">
+                {organizationFilterOptions.error instanceof ApiError
+                  ? organizationFilterOptions.error.message
+                  : "Não foi possível carregar os filtros organizacionais."}
+              </p>
+            ) : null}
             {rangeInvalid ? (
               <p className="w-full font-ui text-sm text-red-700">A data inicial deve ser anterior ou igual à data final.</p>
+            ) : null}
+            {!rangeInvalid &&
+            organizationFilterOptions.isSuccess &&
+            (organizationSelectOptions.vp.length === 0 ||
+              organizationSelectOptions.seniorDirectorate.length === 0) ? (
+              <p className="w-full font-ui text-sm text-bloom-aubergine/55">
+                Nenhum valor organizacional cadastrado nos perfis ativos
+                {companyId ? " desta empresa" : ""}. Importe ou atualize os usuários no backoffice.
+              </p>
+            ) : null}
+            {!rangeInvalid ? (
+              <div className="flex w-full flex-wrap items-center gap-2 border-t border-bloom-aubergine/[0.08] pt-3">
+                <span className="font-ui text-[11px] font-extrabold uppercase tracking-wide text-bloom-aubergine/45">
+                  Filtros ativos
+                </span>
+                {activeFilterSummary.map((item) => (
+                  <span
+                    key={item}
+                    className="inline-flex max-w-full items-center rounded-full border border-bloom-aubergine/10 bg-white/55 px-3 py-1.5 font-ui text-[12px] font-bold text-bloom-aubergine/65"
+                  >
+                    {item}
+                  </span>
+                ))}
+              </div>
             ) : null}
           </section>
         </FadeIn>

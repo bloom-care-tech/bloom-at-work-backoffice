@@ -1,5 +1,6 @@
 import { apiFetch, apiFetchBlob } from "./auth/api-client";
 import type { BulkQuoteImportPayload } from "./quote-bulk-import.types";
+import type { BulkCompanyUserImportPayload } from "./user-bulk-import.types";
 
 export interface Paginated<T> {
   items: T[];
@@ -131,6 +132,21 @@ export async function createCompanyUser(body: {
   displayName?: string | null;
 }) {
   return apiFetch<{ id: string }>(`/admin/usuarios`, { method: "POST", auth: true, body: JSON.stringify(body) });
+}
+
+export async function bulkCreateCompanyUsers(
+  companyId: string,
+  users: BulkCompanyUserImportPayload[],
+) {
+  return apiFetch<{ created: number; skipped: number; errors: { index: number; code: string; message: string }[] }>(
+    `/admin/usuarios/bulk`,
+    { method: "POST", auth: true, body: JSON.stringify({ companyId, users }) },
+  );
+}
+
+export async function downloadUserImportTemplateXlsx(): Promise<Blob> {
+  const { blob } = await apiFetchBlob("/admin/usuarios/bulk/template", { method: "GET", auth: true });
+  return blob;
 }
 
 export async function fetchUser(id: string) {
@@ -749,19 +765,42 @@ export async function deleteDocument(id: string) {
 /** Hub role filter for aggregated metrics (`Interaction.roleSnapshot`). */
 export type MetricsHubRoleFilter = "lider" | "colaborador";
 
+export interface MetricsOrganizationFilters {
+  vp?: string;
+  seniorDirectorate?: string;
+  management?: string;
+  subManagement?: string;
+}
+
+export type MetricsOrganizationFilterOptions = Record<keyof MetricsOrganizationFilters, string[]>;
+
+export async function fetchMetricsOrganizationFilterOptions(
+  from?: string,
+  to?: string,
+  companyId?: string,
+  role?: MetricsHubRoleFilter,
+  organizationFilters?: MetricsOrganizationFilters,
+) {
+  return apiFetch<MetricsOrganizationFilterOptions>(
+    `/admin/metricas/organization-filter-options${q({ from, to, companyId, role, ...organizationFilters })}`,
+    { auth: true },
+  );
+}
+
 export async function fetchContentRanking(
   period: "week" | "month",
   from?: string,
   to?: string,
   companyId?: string,
   role?: MetricsHubRoleFilter,
+  organizationFilters?: MetricsOrganizationFilters,
 ) {
   return apiFetch<{
     period: string;
     from: string;
     to: string;
     rows: { contentType: string; contentId: string; contentTitle: string; count: number }[];
-  }>(`/admin/metricas/content-ranking${q({ period, from, to, companyId, role })}`, { auth: true });
+  }>(`/admin/metricas/content-ranking${q({ period, from, to, companyId, role, ...organizationFilters })}`, { auth: true });
 }
 
 export async function fetchWaveEngagementHierarchy(
@@ -769,6 +808,7 @@ export async function fetchWaveEngagementHierarchy(
   to?: string,
   companyId?: string,
   role?: MetricsHubRoleFilter,
+  organizationFilters?: MetricsOrganizationFilters,
 ) {
   return apiFetch<{
     from: string;
@@ -786,7 +826,7 @@ export async function fetchWaveEngagementHierarchy(
         contents: { contentId: string; title: string; kind: string; count: number; sortOrder: number }[];
       }[];
     }[];
-  }>(`/admin/metricas/waves/hierarchy${q({ from, to, companyId, role })}`, { auth: true });
+  }>(`/admin/metricas/waves/hierarchy${q({ from, to, companyId, role, ...organizationFilters })}`, { auth: true });
 }
 
 export async function fetchSkillEngagementHierarchy(
@@ -794,6 +834,7 @@ export async function fetchSkillEngagementHierarchy(
   to?: string,
   companyId?: string,
   role?: MetricsHubRoleFilter,
+  organizationFilters?: MetricsOrganizationFilters,
 ) {
   return apiFetch<{
     from: string;
@@ -807,7 +848,7 @@ export async function fetchSkillEngagementHierarchy(
       pageCount: number;
       items: { itemId: string; title: string; count: number; sortOrder: number }[];
     }[];
-  }>(`/admin/metricas/skills/hierarchy${q({ from, to, companyId, role })}`, { auth: true });
+  }>(`/admin/metricas/skills/hierarchy${q({ from, to, companyId, role, ...organizationFilters })}`, { auth: true });
 }
 
 export async function fetchEngagementMetrics(
@@ -815,6 +856,7 @@ export async function fetchEngagementMetrics(
   to?: string,
   companyId?: string,
   role?: MetricsHubRoleFilter,
+  organizationFilters?: MetricsOrganizationFilters,
 ) {
   return apiFetch<{
     from: string;
@@ -826,7 +868,7 @@ export async function fetchEngagementMetrics(
     document: { contentId: string; contentTitle: string; count: number }[];
     documentByCategory: { categoryId: string; categoryName: string; count: number }[];
     quote: { contentId: string; contentTitle: string; count: number }[];
-  }>(`/admin/metricas/engagement${q({ from, to, companyId, role })}`, { auth: true });
+  }>(`/admin/metricas/engagement${q({ from, to, companyId, role, ...organizationFilters })}`, { auth: true });
 }
 
 export async function fetchCohortMetrics(
@@ -834,6 +876,7 @@ export async function fetchCohortMetrics(
   to: string,
   companyId?: string,
   role?: MetricsHubRoleFilter,
+  organizationFilters?: MetricsOrganizationFilters,
 ) {
   return apiFetch<{
     from: string;
@@ -847,7 +890,7 @@ export async function fetchCohortMetrics(
     mau30WindowFrom: string;
     mau30WindowTo: string;
     dailyActiveUsersByDay: { day: string; users: number }[];
-  }>(`/admin/metricas/cohorts/dau-wau-mau${q({ from, to, companyId, role })}`, { auth: true });
+  }>(`/admin/metricas/cohorts/dau-wau-mau${q({ from, to, companyId, role, ...organizationFilters })}`, { auth: true });
 }
 
 async function downloadAdminMetricsCsv(path: string, fallbackFilename: string): Promise<void> {
@@ -879,9 +922,10 @@ export async function downloadContentRankingCsv(
   to?: string,
   companyId?: string,
   role?: MetricsHubRoleFilter,
+  organizationFilters?: MetricsOrganizationFilters,
 ): Promise<void> {
   await downloadAdminMetricsCsv(
-    `/admin/metricas/content-ranking/export${q({ period, from, to, companyId, role })}`,
+    `/admin/metricas/content-ranking/export${q({ period, from, to, companyId, role, ...organizationFilters })}`,
     `content-ranking-${period}.csv`,
   );
 }
@@ -891,9 +935,10 @@ export async function downloadEngagementMetricsCsv(
   to?: string,
   companyId?: string,
   role?: MetricsHubRoleFilter,
+  organizationFilters?: MetricsOrganizationFilters,
 ): Promise<void> {
   await downloadAdminMetricsCsv(
-    `/admin/metricas/engagement/export${q({ from, to, companyId, role })}`,
+    `/admin/metricas/engagement/export${q({ from, to, companyId, role, ...organizationFilters })}`,
     "engagement.csv",
   );
 }
@@ -903,9 +948,10 @@ export async function downloadWaveEngagementHierarchyCsv(
   to?: string,
   companyId?: string,
   role?: MetricsHubRoleFilter,
+  organizationFilters?: MetricsOrganizationFilters,
 ): Promise<void> {
   await downloadAdminMetricsCsv(
-    `/admin/metricas/waves/hierarchy/export${q({ from, to, companyId, role })}`,
+    `/admin/metricas/waves/hierarchy/export${q({ from, to, companyId, role, ...organizationFilters })}`,
     "waves-hierarchy.csv",
   );
 }
@@ -915,9 +961,10 @@ export async function downloadSkillEngagementHierarchyCsv(
   to?: string,
   companyId?: string,
   role?: MetricsHubRoleFilter,
+  organizationFilters?: MetricsOrganizationFilters,
 ): Promise<void> {
   await downloadAdminMetricsCsv(
-    `/admin/metricas/skills/hierarchy/export${q({ from, to, companyId, role })}`,
+    `/admin/metricas/skills/hierarchy/export${q({ from, to, companyId, role, ...organizationFilters })}`,
     "skills-hierarchy.csv",
   );
 }
@@ -927,9 +974,10 @@ export async function downloadCohortMetricsCsv(
   to: string,
   companyId?: string,
   role?: MetricsHubRoleFilter,
+  organizationFilters?: MetricsOrganizationFilters,
 ): Promise<void> {
   await downloadAdminMetricsCsv(
-    `/admin/metricas/cohorts/dau-wau-mau/export${q({ from, to, companyId, role })}`,
+    `/admin/metricas/cohorts/dau-wau-mau/export${q({ from, to, companyId, role, ...organizationFilters })}`,
     "cohorts-dau-wau-mau.csv",
   );
 }
