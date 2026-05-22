@@ -6,7 +6,7 @@ import { toast } from "@/components/ui/sonner";
 import { ApiError } from "@/lib/auth/api-client";
 import { isBloomBackofficeOperator } from "@/lib/auth/backoffice-access";
 import { getMe, login } from "@/lib/auth/auth-api";
-import { writePersistedAuth } from "@/lib/auth/session-storage";
+import { setAccessToken, writePersistedAuth } from "@/lib/auth/session-storage";
 import { useBackofficeSession } from "@/lib/backoffice-session";
 
 const inputCls =
@@ -41,6 +41,7 @@ export function LoginPage() {
         toast("Sua conta não tem permissão de administrador para este painel.");
         return;
       }
+      setAccessToken(res.accessToken);
       const me = await getMe(res.accessToken);
       if (!isBloomBackofficeOperator(me)) {
         toast("Sua conta não tem permissão de administrador para este painel.");
@@ -48,8 +49,6 @@ export function LoginPage() {
       }
       writePersistedAuth({
         kind: "backoffice",
-        accessToken: res.accessToken,
-        refreshToken: res.refreshToken,
         me,
         createdAt: new Date().toISOString(),
       });

@@ -5,6 +5,7 @@ describe("api-client", () => {
   beforeEach(() => {
     vi.stubEnv("VITE_API_URL", "http://127.0.0.1:3333");
     vi.spyOn(sessionStorage, "readPersistedAuth").mockReturnValue(null);
+    vi.spyOn(sessionStorage, "readAccessToken").mockReturnValue(null);
   });
 
   afterEach(() => {
@@ -39,22 +40,7 @@ describe("api-client", () => {
   });
 
   it("apiFetch sets Authorization when auth is true and token exists", async () => {
-    vi.spyOn(sessionStorage, "readPersistedAuth").mockReturnValue({
-      kind: "backoffice",
-      accessToken: "abc",
-      refreshToken: "ref",
-      me: {
-        id: "u",
-        email: "a@b.co",
-        name: null,
-        displayName: null,
-    role: "admin",
-    status: "ativo",
-    company: { id: "c", name: "C", logoUrl: null },
-        firstAccessCompleted: true,
-      },
-      createdAt: "2026-01-01T00:00:00.000Z",
-    });
+    vi.spyOn(sessionStorage, "readAccessToken").mockReturnValue("abc");
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 200 }));
 
     await apiFetch("/admin/x", { auth: true });

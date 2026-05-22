@@ -3,7 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { NewAccessLinkPage } from "./NewAccessLinkPage";
-import { AUTH_STORAGE_KEY } from "@/lib/auth/session-storage";
+import { AUTH_STORAGE_KEY, setAccessToken } from "@/lib/auth/session-storage";
 
 function renderAccessLinkFlow() {
   const queryClient = new QueryClient({
@@ -31,10 +31,10 @@ describe("NewAccessLinkPage (integration)", () => {
       AUTH_STORAGE_KEY,
       JSON.stringify({
         kind: "backoffice",
-        accessToken: "integration-test-token",
         createdAt: new Date().toISOString(),
       }),
     );
+    setAccessToken("integration-test-token");
     vi.spyOn(window, "alert").mockImplementation(() => {});
     Object.defineProperty(globalThis.navigator, "clipboard", {
       value: { writeText: vi.fn().mockResolvedValue(undefined) },

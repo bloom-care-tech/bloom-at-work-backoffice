@@ -1,7 +1,9 @@
-import "@testing-library/jest-dom/vitest";
-import { afterAll, afterEach, beforeAll, beforeEach } from "vitest";
+import * as matchers from "@testing-library/jest-dom/matchers";
+import { expect } from "vitest";
 import { TEST_API_ORIGIN } from "./msw/handlers";
 import { server } from "./msw/server";
+
+expect.extend(matchers);
 
 class IntersectionObserverStub {
   readonly root = null;

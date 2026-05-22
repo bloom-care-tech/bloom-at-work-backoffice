@@ -32,15 +32,15 @@ describe("LoginPage (integration)", () => {
     await user.click(screen.getByRole("button", { name: /entrar/i }));
 
     await waitFor(() => {
-      expect(screen.getByTestId("post-login-home")).toBeInTheDocument();
+      expect(screen.getByTestId("post-login-home")).not.toBeNull();
     });
 
     const raw = localStorage.getItem(AUTH_STORAGE_KEY);
     expect(raw).toBeTruthy();
-    const parsed = JSON.parse(raw!) as { kind: string; accessToken: string; refreshToken: string; me: { role: string } };
+    const parsed = JSON.parse(raw!) as { kind: string; accessToken?: string; refreshToken?: string; me: { role: string } };
     expect(parsed.kind).toBe("backoffice");
-    expect(parsed.accessToken).toBe("jwt-test-access");
-    expect(parsed.refreshToken).toBe("jwt-test-refresh");
+    expect(parsed.accessToken).toBeUndefined();
+    expect(parsed.refreshToken).toBeUndefined();
     expect(parsed.me.role).toBe("admin");
   });
 
@@ -53,7 +53,7 @@ describe("LoginPage (integration)", () => {
     await user.click(screen.getByRole("button", { name: /entrar/i }));
 
     await waitFor(() => {
-      expect(screen.getByText("Credenciais inválidas.")).toBeInTheDocument();
+      expect(screen.getByText("Credenciais inválidas.")).not.toBeNull();
     });
   });
 });

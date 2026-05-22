@@ -22,13 +22,11 @@ export interface MeUserJson extends AuthUserJson {
 
 export interface LoginSuccessBody {
   accessToken: string;
-  refreshToken: string;
   user: AuthUserJson;
 }
 
 export interface RefreshBody {
   accessToken: string;
-  refreshToken: string;
 }
 
 export interface RequestOtpBody {

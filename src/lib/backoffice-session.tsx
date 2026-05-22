@@ -20,14 +20,11 @@ export function BackofficeSessionProvider({ children }: { children: ReactNode })
   }, []);
 
   const signOut = useCallback(() => {
-    const p = readPersistedAuth();
     void (async () => {
-      if (p?.accessToken) {
-        try {
-          await logoutUserSession(p.accessToken);
-        } catch {
-          /* ignore */
-        }
+      try {
+        await logoutUserSession();
+      } catch {
+        /* ignore */
       }
       writePersistedAuth(null);
     })();

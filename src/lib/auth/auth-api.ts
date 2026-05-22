@@ -7,6 +7,7 @@ import type {
   RequestOtpBody,
   VerifyOtpBody,
 } from "./types";
+import { readAccessToken } from "./session-storage";
 
 export async function requestOtp(email: string, signupAccessToken: string): Promise<RequestOtpBody> {
   return apiFetch<RequestOtpBody>("/auth/signup", {
@@ -53,18 +54,17 @@ export async function resetPassword(token: string, password: string): Promise<Me
   });
 }
 
-export async function refreshSession(refreshToken: string): Promise<RefreshBody> {
+export async function refreshSession(): Promise<RefreshBody> {
   return apiFetch<RefreshBody>("/auth/refresh", {
     method: "POST",
-    body: JSON.stringify({ refreshToken }),
   });
 }
 
-export async function logoutUserSession(accessToken: string): Promise<MessageBody> {
+export async function logoutUserSession(accessToken = readAccessToken()): Promise<MessageBody> {
   try {
     return await apiFetch<MessageBody>("/auth/logout", {
       method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
     });
   } catch {
     return { message: "Sessão encerrada com sucesso." };

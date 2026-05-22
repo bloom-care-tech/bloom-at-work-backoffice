@@ -5,19 +5,17 @@ export const AUTH_STORAGE_KEY = "bloom_backoffice_auth";
 
 export interface PersistedAuth {
   kind: "backoffice";
-  accessToken: string;
-  refreshToken: string;
   me: MeUserJson;
   createdAt: string;
 }
+
+let accessTokenInMemory: string | null = null;
 
 function isPersistedAuth(value: unknown): value is PersistedAuth {
   if (!value || typeof value !== "object") return false;
   const o = value as Record<string, unknown>;
   return (
     o.kind === "backoffice" &&
-    typeof o.accessToken === "string" &&
-    typeof o.refreshToken === "string" &&
     typeof o.createdAt === "string" &&
     o.me !== null &&
     typeof o.me === "object" &&
@@ -36,7 +34,14 @@ export function readPersistedAuth(): PersistedAuth | null {
       localStorage.removeItem(AUTH_STORAGE_KEY);
       return null;
     }
-    return parsed;
+    const persisted = {
+      kind: "backoffice" as const,
+      me: parsed.me,
+      createdAt: parsed.createdAt,
+    };
+    // Migrate away from older entries that included raw tokens.
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(persisted));
+    return persisted;
   } catch {
     return null;
   }
@@ -53,10 +58,21 @@ export function writePersistedAuth(value: PersistedAuth | null): void {
   }
 }
 
-export function updatePersistedTokens(accessToken: string, refreshToken: string): void {
-  const cur = readPersistedAuth();
-  if (!cur) return;
-  writePersistedAuth({ ...cur, accessToken, refreshToken });
+export function readAccessToken(): string | null {
+  return accessTokenInMemory;
+}
+
+export function setAccessToken(accessToken: string | null): void {
+  accessTokenInMemory = accessToken;
+}
+
+export function clearAuthState(): void {
+  accessTokenInMemory = null;
+  writePersistedAuth(null);
+}
+
+export function updatePersistedTokens(accessToken: string): void {
+  setAccessToken(accessToken);
 }
 
 export function replacePersistedMe(me: MeUserJson): void {

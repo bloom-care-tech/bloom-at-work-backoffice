@@ -2,8 +2,6 @@ import { AUTH_STORAGE_KEY, readPersistedAuth, writePersistedAuth, type Persisted
 
 const validAuth: PersistedAuth = {
   kind: "backoffice",
-  accessToken: "tok",
-  refreshToken: "ref",
   me: {
     id: "u1",
     email: "a@b.co",
@@ -34,6 +32,15 @@ describe("session-storage", () => {
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ kind: "wrong", accessToken: "x", createdAt: "y" }));
     expect(readPersistedAuth()).toBeNull();
     expect(localStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
+  });
+
+  it("readPersistedAuth strips legacy token fields", () => {
+    localStorage.setItem(
+      AUTH_STORAGE_KEY,
+      JSON.stringify({ ...validAuth, accessToken: "tok", refreshToken: "ref" }),
+    );
+    expect(readPersistedAuth()).toEqual(validAuth);
+    expect(JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY)!)).toEqual(validAuth);
   });
 
   it("readPersistedAuth returns null on invalid JSON without throwing", () => {

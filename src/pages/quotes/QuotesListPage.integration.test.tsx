@@ -1,13 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { AUTH_STORAGE_KEY } from "@/lib/auth/session-storage";
+import { AUTH_STORAGE_KEY, setAccessToken } from "@/lib/auth/session-storage";
 import { QuotesListPage } from "./QuotesListPage";
 
 const persistedAuth = {
   kind: "backoffice" as const,
-  accessToken: "jwt-test-access",
-  refreshToken: "jwt-test-refresh",
   createdAt: "2026-01-01T00:00:00.000Z",
   me: {
     id: "u-admin",
@@ -44,6 +42,7 @@ function renderQuotesList() {
 describe("QuotesListPage (integration)", () => {
   beforeEach(() => {
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(persistedAuth));
+    setAccessToken("jwt-test-access");
   });
 
   it("renders quotes returned by the admin API", async () => {

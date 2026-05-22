@@ -1,5 +1,5 @@
 import type { RefreshBody } from "./types";
-import { readPersistedAuth, writePersistedAuth, updatePersistedTokens } from "./session-storage";
+import { clearAuthState, readAccessToken, updatePersistedTokens } from "./session-storage";
 
 export function getApiBaseUrl(): string {
   let raw = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "").trim() ?? "";
@@ -74,11 +74,10 @@ function parseErrorMessage(body: unknown, status: number): string {
 
 let refreshInFlight: Promise<boolean> | null = null;
 
-async function postRefresh(refreshToken: string): Promise<RefreshBody | null> {
+async function postRefresh(): Promise<RefreshBody | null> {
   const res = await fetch(joinUrl("/auth/refresh"), {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refreshToken }),
+    credentials: "include",
   });
   if (!res.ok) return null;
   return (await res.json()) as RefreshBody;
@@ -87,14 +86,12 @@ async function postRefresh(refreshToken: string): Promise<RefreshBody | null> {
 async function tryRefresh(): Promise<boolean> {
   if (refreshInFlight) return refreshInFlight;
   refreshInFlight = (async () => {
-    const p = readPersistedAuth();
-    if (!p?.refreshToken) return false;
-    const next = await postRefresh(p.refreshToken);
+    const next = await postRefresh();
     if (!next) {
-      writePersistedAuth(null);
+      clearAuthState();
       return false;
     }
-    updatePersistedTokens(next.accessToken, next.refreshToken);
+    updatePersistedTokens(next.accessToken);
     return true;
   })().finally(() => {
     refreshInFlight = null;
@@ -117,24 +114,27 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
   }
 
   if (auth) {
-    const p = readPersistedAuth();
-    const token = p?.accessToken;
+    let token = readAccessToken();
+    if (!token && !skipRefresh) {
+      const ok = await tryRefresh();
+      token = ok ? readAccessToken() : null;
+    }
     if (token) headers.set("Authorization", `Bearer ${token}`);
   }
 
   const url = joinUrl(path);
-  let res = await fetch(url, { ...rest, headers });
+  let res = await fetch(url, { ...rest, headers, credentials: "include" });
 
   if (res.status === 401 && auth && !skipRefresh) {
     const ok = await tryRefresh();
     if (ok) {
-      const p2 = readPersistedAuth();
       const h2 = new Headers(hdrs);
       if (rest.body !== undefined && !h2.has("Content-Type")) {
         h2.set("Content-Type", "application/json");
       }
-      if (p2?.accessToken) h2.set("Authorization", `Bearer ${p2.accessToken}`);
-      res = await fetch(url, { ...rest, headers: h2 });
+      const token = readAccessToken();
+      if (token) h2.set("Authorization", `Bearer ${token}`);
+      res = await fetch(url, { ...rest, headers: h2, credentials: "include" });
     }
   }
 
@@ -167,21 +167,24 @@ export async function apiFetchBlob(
   const headers = new Headers(hdrs);
 
   if (auth) {
-    const p = readPersistedAuth();
-    const token = p?.accessToken;
+    let token = readAccessToken();
+    if (!token) {
+      const ok = await tryRefresh();
+      token = ok ? readAccessToken() : null;
+    }
     if (token) headers.set("Authorization", `Bearer ${token}`);
   }
 
   const url = joinUrl(path);
-  let res = await fetch(url, { ...rest, headers });
+  let res = await fetch(url, { ...rest, headers, credentials: "include" });
 
   if (res.status === 401 && auth) {
     const ok = await tryRefresh();
     if (ok) {
       const h2 = new Headers(hdrs);
-      const p2 = readPersistedAuth();
-      if (p2?.accessToken) h2.set("Authorization", `Bearer ${p2.accessToken}`);
-      res = await fetch(url, { ...rest, headers: h2 });
+      const token = readAccessToken();
+      if (token) h2.set("Authorization", `Bearer ${token}`);
+      res = await fetch(url, { ...rest, headers: h2, credentials: "include" });
     }
   }
 
