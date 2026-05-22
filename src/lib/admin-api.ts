@@ -139,7 +139,7 @@ export async function createPlatformAdminUser(body: {
 
 export async function createCompanyUser(body: {
   email: string;
-  password: string;
+  password?: string;
   companyId: string;
   role: string;
   name?: string | null;

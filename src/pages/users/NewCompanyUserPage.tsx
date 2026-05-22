@@ -23,21 +23,18 @@ export function NewCompanyUserPage() {
   const { data: companies, isLoading: companiesLoading } = useAdminCompaniesForSelect();
 
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [companyId, setCompanyId] = useState("");
   const [role, setRole] = useState("colaborador");
   const [name, setName] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [orgFields, setOrgFields] = useState(emptyCompanyUserOrgForm);
   const [emailError, setEmailError] = useState("");
-  const [passwordError, setPasswordError] = useState("");
   const [companyError, setCompanyError] = useState("");
 
   const createUser = useMutation({
     mutationFn: () =>
       createCompanyUser({
         email: email.trim(),
-        password,
         companyId,
         role,
         name: name.trim() || null,
@@ -74,12 +71,6 @@ export function NewCompanyUserPage() {
               ok = false;
             } else {
               setEmailError("");
-            }
-            if (password.length < 8) {
-              setPasswordError("A senha deve ter pelo menos 8 caracteres.");
-              ok = false;
-            } else {
-              setPasswordError("");
             }
             if (!companyId) {
               setCompanyError("Selecione a empresa.");
@@ -131,21 +122,6 @@ export function NewCompanyUserPage() {
               }}
             />
             <FieldError message={emailError} />
-          </div>
-          <div className="space-y-2">
-            <Label className="font-ui text-bloom-aubergine/80">Senha inicial</Label>
-            <input
-              className={inputCls}
-              type="password"
-              autoComplete="new-password"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                if (passwordError) setPasswordError("");
-              }}
-            />
-            <FieldError message={passwordError} />
-            <p className="font-ui text-xs text-bloom-aubergine/55">Mínimo de 8 caracteres.</p>
           </div>
           <div className="space-y-2">
             <Label className="font-ui text-bloom-aubergine/80">Nome (opcional)</Label>
