@@ -474,6 +474,37 @@ export async function uploadEditorialMediaAsset(
   );
 }
 
+export interface MuxDirectUploadDto {
+  uploadId: string;
+  uploadUrl: string;
+}
+
+export interface MuxUploadStatusDto {
+  uploadId: string;
+  status: "waiting" | "asset_created" | "preparing" | "ready" | "errored" | "cancelled" | "timed_out";
+  assetId: string | null;
+  playbackId: string | null;
+  videoUrl: string | null;
+  duration: number | null;
+  aspectRatio: string | null;
+  error: string | null;
+}
+
+export async function createMuxDirectUpload() {
+  return apiFetch<MuxDirectUploadDto>("/admin/conteudos/mux/uploads", {
+    method: "POST",
+    auth: true,
+    body: JSON.stringify({}),
+  });
+}
+
+export async function fetchMuxUploadStatus(uploadId: string) {
+  return apiFetch<MuxUploadStatusDto>(`/admin/conteudos/mux/uploads/${encodeURIComponent(uploadId)}/status`, {
+    method: "GET",
+    auth: true,
+  });
+}
+
 export interface EditorialExpertDto {
   id: string;
   name: string;

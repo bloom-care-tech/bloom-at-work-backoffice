@@ -3,6 +3,7 @@ import {
   articleFormatFromPayload,
   articleHtmlUrlFromPayload,
   extractArticleEditorHtml,
+  mediaExtrasFromPayload,
   payloadRecordFromUnknown,
   scientificRefsExtrasFromPayload,
   toolkitExtrasFromPayload,
@@ -75,6 +76,27 @@ describe("scientificRefsExtrasFromPayload", () => {
       extra: 1,
     };
     expect(scientificRefsExtrasFromPayload(p)).toEqual({ extra: 1 });
+  });
+});
+
+describe("mediaExtrasFromPayload", () => {
+  it("keeps Mux metadata while stripping edited video fields", () => {
+    expect(
+      mediaExtrasFromPayload(
+        {
+          provider: "mux",
+          videoUrl: "https://player.mux.com/playback",
+          description: "Intro",
+          muxUploadId: "upload-id",
+          muxPlaybackId: "playback-id",
+        },
+        "video",
+      ),
+    ).toEqual({
+      provider: "mux",
+      muxUploadId: "upload-id",
+      muxPlaybackId: "playback-id",
+    });
   });
 });
 

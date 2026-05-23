@@ -10,7 +10,9 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { ApiError } from "@/lib/auth/api-client";
 import {
+  createMuxDirectUpload,
   createWaveContent,
+  fetchMuxUploadStatus,
   fetchEditorialExperts,
   fetchWave,
   fetchWaveContent,
@@ -48,12 +50,46 @@ import {
 const inputCls =
   "w-full bg-bloom-cream-deep border border-bloom-aubergine/10 rounded-xl px-4 py-3 font-ui text-sm text-bloom-aubergine placeholder:text-bloom-aubergine/40 focus:outline-none focus:border-bloom-garnet transition-colors duration-260 ease-bloom";
 
+type VideoProvider = "youtube" | "mux";
+
+const MUX_POLL_INTERVAL_MS = 3000;
+const MUX_MAX_POLL_ATTEMPTS = 80;
+
+function delay(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
 function articleExtrasForHtmlFormat(extras: Record<string, unknown>): Record<string, unknown> {
   const next = { ...extras };
   delete next.expertId;
   delete next.quote;
   delete next.author;
   return next;
+}
+
+function videoPayloadFromEditor(
+  provider: VideoProvider,
+  mediaUrl: string,
+  mediaExtras: Record<string, unknown>,
+  description: string,
+): Record<string, unknown> {
+  const d = description.trim();
+  const extras = { ...mediaExtras };
+  if (provider === "youtube") {
+    delete extras.muxUploadId;
+    delete extras.muxAssetId;
+    delete extras.muxPlaybackId;
+    delete extras.muxStatus;
+    delete extras.muxDuration;
+    delete extras.muxAspectRatio;
+    delete extras.muxThumbnailUrl;
+  }
+  return {
+    ...extras,
+    provider,
+    videoUrl: mediaUrl.trim(),
+    ...(d ? { description: d } : {}),
+  };
 }
 
 function buildPayload(
@@ -67,6 +103,7 @@ function buildPayload(
     mediaUrl: string;
     mediaDescription: string;
     mediaExtras: Record<string, unknown>;
+    videoProvider: VideoProvider;
     refRows: RefFormRow[];
     scientificRefsDescription: string;
     refExtras: Record<string, unknown>;
@@ -99,8 +136,7 @@ function buildPayload(
       };
     }
     case "video": {
-      const d = ctx.mediaDescription.trim();
-      return { ...ctx.mediaExtras, videoUrl: ctx.mediaUrl.trim(), ...(d ? { description: d } : {}) };
+      return videoPayloadFromEditor(ctx.videoProvider, ctx.mediaUrl, ctx.mediaExtras, ctx.mediaDescription);
     }
     case "audio": {
       const d = ctx.mediaDescription.trim();
@@ -196,6 +232,7 @@ export function WaveContentEditorPage() {
   const [mediaUrl, setMediaUrl] = useState("");
   const [mediaDescription, setMediaDescription] = useState("");
   const [mediaExtras, setMediaExtras] = useState<Record<string, unknown>>({});
+  const [videoProvider, setVideoProvider] = useState<VideoProvider>("youtube");
 
   const [refRows, setRefRows] = useState<RefFormRow[]>([emptyRefRow()]);
   const [scientificRefsDescription, setScientificRefsDescription] = useState("");
@@ -237,6 +274,7 @@ export function WaveContentEditorPage() {
       setMediaUrl("");
       setMediaDescription("");
       setMediaExtras({});
+      setVideoProvider("youtube");
     }
     if (kind === "scientificReferences") {
       setRefRows([emptyRefRow()]);
@@ -276,6 +314,9 @@ export function WaveContentEditorPage() {
       setMediaUrl(typeof p[key] === "string" ? (p[key] as string) : "");
       setMediaDescription(mediaDescriptionFromPayload(p));
       setMediaExtras(mediaExtrasFromPayload(p, k));
+      if (k === "video") {
+        setVideoProvider(p.provider === "mux" ? "mux" : "youtube");
+      }
     } else if (k === "scientificReferences") {
       setRefRows(refsFromPayload(p));
       setScientificRefsDescription(mediaDescriptionFromPayload(p));
@@ -302,6 +343,7 @@ export function WaveContentEditorPage() {
         mediaUrl,
         mediaDescription,
         mediaExtras,
+        videoProvider,
         refRows,
         scientificRefsDescription,
         refExtras,
@@ -331,6 +373,7 @@ export function WaveContentEditorPage() {
     mediaUrl,
     mediaDescription,
     mediaExtras,
+    videoProvider,
     refRows,
     scientificRefsDescription,
     refExtras,
@@ -384,6 +427,7 @@ export function WaveContentEditorPage() {
           mediaUrl,
           mediaDescription,
           mediaExtras,
+          videoProvider,
           refRows,
           scientificRefsDescription,
           refExtras,
@@ -399,8 +443,11 @@ export function WaveContentEditorPage() {
         throw e instanceof Error ? e : new Error("Invalid payload.");
       }
       if (!title.trim()) throw new Error("Informe o título.");
-      if (kind === "video" && !mediaUrl.trim()) {
-        throw new Error("Informe a URL do vídeo.");
+      if (kind === "video" && videoProvider === "youtube" && !mediaUrl.trim()) {
+        throw new Error("Informe a URL do YouTube.");
+      }
+      if (kind === "video" && videoProvider === "mux" && !mediaUrl.trim()) {
+        throw new Error("Envie um ficheiro de vídeo e aguarde o processamento do Mux.");
       }
       if ((kind === "audio" || kind === "pdf") && !mediaUrl.trim()) {
         throw new Error("Informe uma URL externa ou envie um ficheiro.");
@@ -446,9 +493,52 @@ export function WaveContentEditorPage() {
   async function onWaveMediaFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
-    if (!file || (kind !== "audio" && kind !== "pdf")) return;
+    if (!file || (kind !== "video" && kind !== "audio" && kind !== "pdf")) return;
     setMediaUploading(true);
     try {
+      if (kind === "video") {
+        if (videoProvider !== "mux") return;
+        setMediaUrl("");
+        setMediaExtras((prev) => ({ ...prev, provider: "mux", muxStatus: "creating_upload" }));
+        const { uploadId, uploadUrl } = await createMuxDirectUpload();
+        setMediaExtras((prev) => ({ ...prev, provider: "mux", muxUploadId: uploadId, muxStatus: "uploading" }));
+        const uploadResponse = await fetch(uploadUrl, {
+          method: "PUT",
+          body: file,
+          headers: { "Content-Type": file.type || "application/octet-stream" },
+        });
+        if (!uploadResponse.ok) {
+          throw new Error(`Upload para o Mux falhou (${uploadResponse.status}).`);
+        }
+        setMediaExtras((prev) => ({ ...prev, provider: "mux", muxUploadId: uploadId, muxStatus: "processing" }));
+        toast("Vídeo enviado ao Mux. Aguardando processamento…");
+
+        for (let attempt = 0; attempt < MUX_MAX_POLL_ATTEMPTS; attempt++) {
+          const status = await fetchMuxUploadStatus(uploadId);
+          setMediaExtras((prev) => ({
+            ...prev,
+            provider: "mux",
+            muxUploadId: uploadId,
+            muxStatus: status.status,
+            ...(status.assetId ? { muxAssetId: status.assetId } : {}),
+            ...(status.playbackId ? { muxPlaybackId: status.playbackId } : {}),
+            ...(status.duration !== null ? { muxDuration: status.duration } : {}),
+            ...(status.aspectRatio ? { muxAspectRatio: status.aspectRatio } : {}),
+            ...(status.playbackId ? { muxThumbnailUrl: `https://image.mux.com/${status.playbackId}/thumbnail.jpg` } : {}),
+          }));
+          if (status.status === "ready" && status.videoUrl && status.playbackId) {
+            setMediaUrl(status.videoUrl);
+            toast("Vídeo pronto no Mux. O endereço foi preenchido automaticamente.");
+            return;
+          }
+          if (status.status === "errored" || status.status === "cancelled" || status.status === "timed_out") {
+            throw new Error(status.error ?? "O Mux não conseguiu processar este vídeo.");
+          }
+          await delay(MUX_POLL_INTERVAL_MS);
+        }
+        throw new Error("O vídeo foi enviado, mas o processamento do Mux ainda não terminou. Tente consultar novamente mais tarde.");
+      }
+
       const { url } = await uploadEditorialMediaAsset(file, { context: "wave", kind });
       setMediaUrl(url);
       toast("Ficheiro enviado. O endereço foi preenchido automaticamente.");
@@ -478,7 +568,15 @@ export function WaveContentEditorPage() {
   if (!ondaId || !moduloId || (!isNew && !conteudoId)) return null;
 
   const mediaLabel =
-    kind === "video" ? "Video URL" : kind === "audio" ? "Audio URL" : kind === "pdf" ? "PDF URL" : "URL";
+    kind === "video" && videoProvider === "mux"
+      ? "Mux Player URL"
+      : kind === "video"
+        ? "YouTube URL"
+        : kind === "audio"
+          ? "Audio URL"
+          : kind === "pdf"
+            ? "PDF URL"
+            : "URL";
 
   return (
     <div className="space-y-6">
@@ -487,7 +585,7 @@ export function WaveContentEditorPage() {
         <WaveHierarchyBreadcrumb items={breadcrumbs} />
         <h1 className="font-serif-display text-3xl text-bloom-aubergine mt-1">{isNew ? "Novo conteúdo" : "Editar conteúdo"}</h1>
         <p className="font-ui text-sm text-bloom-aubergine/65 mt-1">
-          Artigos: Editor (TinyMCE) ou HTML embutido por URL/envio. Exercício: URL HTTPS do formulário (Typeform, Tally, etc.). Vídeo: URL. Áudio/PDF: URL ou envio; referências: tabela; toolkit: lista de itens (campos{" "}
+          Artigos: Editor (TinyMCE) ou HTML embutido por URL/envio. Exercício: URL HTTPS do formulário (Typeform, Tally, etc.). Vídeo: YouTube ou Mux. Áudio/PDF: URL ou envio; referências: tabela; toolkit: lista de itens (campos{" "}
           <code className="text-[11px]">kind</code>, <code className="text-[11px]">titulo</code>, <code className="text-[11px]">toolkit</code>
           ).
         </p>
@@ -703,26 +801,54 @@ export function WaveContentEditorPage() {
                   </p>
                 </div>
                 <div className="space-y-2">
+                  {kind === "video" && (
+                    <div className="space-y-2 pb-2">
+                      <Label className="font-ui text-bloom-aubergine/80">Origem do vídeo</Label>
+                      <select
+                        className={inputCls}
+                        value={videoProvider}
+                        onChange={(e) => {
+                          const next = e.target.value as VideoProvider;
+                          setVideoProvider(next);
+                          setMediaUrl("");
+                          setMediaExtras(next === "mux" ? { provider: "mux" } : { provider: "youtube" });
+                        }}
+                        disabled={mediaUploading}
+                      >
+                        <option value="youtube">YouTube</option>
+                        <option value="mux">Mux</option>
+                      </select>
+                    </div>
+                  )}
                   <Label className="font-ui text-bloom-aubergine/80">{mediaLabel}</Label>
                   <input
                     className={inputCls}
                     value={mediaUrl}
-                    onChange={(e) => setMediaUrl(e.target.value)}
+                    onChange={(e) => {
+                      setMediaUrl(e.target.value);
+                      if (kind === "video") {
+                        setMediaExtras((prev) => ({ ...prev, provider: videoProvider }));
+                      }
+                    }}
                     placeholder={
-                      kind === "video"
+                      kind === "video" && videoProvider === "youtube"
                         ? "https://www.youtube.com/embed/…"
+                        : kind === "video"
+                          ? "Preenchido automaticamente após o processamento do Mux"
                         : "https://… (URL externa) ou use o envio abaixo"
                     }
-                    disabled={mediaUploading}
+                    disabled={mediaUploading || (kind === "video" && videoProvider === "mux")}
                   />
-                  {(kind === "audio" || kind === "pdf") && (
+                  {((kind === "video" && videoProvider === "mux") || kind === "audio" || kind === "pdf") && (
                     <div className="flex flex-wrap items-center gap-3 pt-1">
                       <input
                         ref={mediaFileInputRef}
                         type="file"
                         className="sr-only"
                         accept={
-                          kind === "audio"
+                          kind === "video"
+                            ? "video/*,.mp4,.mov,.m4v,.webm,.mkv"
+                            : kind === "audio"
                             ? "audio/*,.mp3,.m4a,.wav,.webm,.ogg"
                             : "application/pdf,.pdf"
                         }
@@ -737,16 +863,39 @@ export function WaveContentEditorPage() {
                         disabled={save.isPending || mediaUploading}
                         onClick={() => mediaFileInputRef.current?.click()}
                       >
-                        {mediaUploading ? "A enviar…" : "Enviar ficheiro"}
+                        {mediaUploading
+                          ? kind === "video"
+                            ? "A enviar/processar…"
+                            : "A enviar…"
+                          : kind === "video"
+                            ? "Selecionar vídeo local"
+                            : "Enviar ficheiro"}
                       </Button>
                       <p className="font-ui text-xs text-bloom-aubergine/55">
-                        Após o envio, o campo acima é preenchido com o endereço público do ficheiro (
-                        <code className="text-[11px]">{mediaUrlKeyForKind(kind)}</code>).
+                        {kind === "video"
+                          ? "O ficheiro é enviado diretamente ao Mux. Quando o processamento terminar, o campo acima recebe a URL do player."
+                          : (
+                            <>
+                              Após o envio, o campo acima é preenchido com o endereço público do ficheiro (
+                              <code className="text-[11px]">{mediaUrlKeyForKind(kind)}</code>).
+                            </>
+                          )}
                       </p>
                     </div>
                   )}
+                  {kind === "video" && videoProvider === "mux" && typeof mediaExtras.muxStatus === "string" && (
+                    <p className="font-ui text-xs text-bloom-aubergine/55">
+                      Status Mux: <code className="text-[11px]">{mediaExtras.muxStatus}</code>
+                      {typeof mediaExtras.muxPlaybackId === "string" ? (
+                        <>
+                          {" "}· playbackId: <code className="text-[11px]">{mediaExtras.muxPlaybackId}</code>
+                        </>
+                      ) : null}
+                    </p>
+                  )}
                   <p className="font-ui text-xs text-bloom-aubergine/55">
-                    Campo <code className="text-[11px]">{mediaUrlKeyForKind(kind)}</code> no payload. Outros metadados do item são preservados ao editar.
+                    Campo <code className="text-[11px]">{mediaUrlKeyForKind(kind)}</code> no payload.{" "}
+                    {kind === "video" ? "A origem é salva como provider." : "Outros metadados do item são preservados ao editar."}
                   </p>
                 </div>
               </div>
@@ -980,8 +1129,8 @@ export function WaveContentEditorPage() {
               <Switch id="wave-content-published" checked={published} onCheckedChange={setPublished} />
             </div>
             <div className="flex gap-3 pt-2">
-              <PillButton type="submit" disabled={save.isPending}>
-                {save.isPending ? "Salvando…" : "Salvar"}
+              <PillButton type="submit" disabled={save.isPending || mediaUploading}>
+                {save.isPending ? "Salvando…" : mediaUploading ? "Processando…" : "Salvar"}
               </PillButton>
               <Button type="button" variant="outline" className="rounded-full" onClick={() => navigate(`/ondas/${ondaId}/modulos/${moduloId}/conteudos`)}>
                 Cancelar
