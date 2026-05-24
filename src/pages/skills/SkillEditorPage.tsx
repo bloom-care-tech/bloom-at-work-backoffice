@@ -18,6 +18,8 @@ import {
 const inputCls =
   "w-full bg-bloom-cream-deep border border-bloom-aubergine/10 rounded-xl px-4 py-3 font-ui text-sm text-bloom-aubergine placeholder:text-bloom-aubergine/40 focus:outline-none focus:border-bloom-garnet transition-colors duration-260 ease-bloom";
 
+type SkillAudience = "all" | "leader" | "collaborator";
+
 export function SkillEditorPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -36,6 +38,8 @@ export function SkillEditorPage() {
   const [description, setDescription] = useState("");
   const [whatItIs, setWhatItIs] = useState("");
   const [scienceSays, setScienceSays] = useState("");
+  const [audience, setAudience] = useState<SkillAudience>("all");
+  const [section, setSection] = useState<1 | 2>(1);
   const [active, setActive] = useState(true);
   const slugManualRef = useRef(false);
 
@@ -46,6 +50,8 @@ export function SkillEditorPage() {
     setDescription(data.description ?? "");
     setWhatItIs(data.whatItIs ?? "");
     setScienceSays(data.scienceSays ?? "");
+    setAudience(data.audience ?? "all");
+    setSection(data.section === 2 ? 2 : 1);
     setActive(data.active);
     slugManualRef.current = false;
   }, [data]);
@@ -61,6 +67,8 @@ export function SkillEditorPage() {
           description: description.trim() || null,
           whatItIs: whatItIs.trim(),
           scienceSays: scienceSays.trim(),
+          audience,
+          section,
           active,
         });
       } else {
@@ -74,6 +82,8 @@ export function SkillEditorPage() {
           description: description.trim() || null,
           whatItIs: whatItIs.trim() || undefined,
           scienceSays: scienceSays.trim() || undefined,
+          audience,
+          section,
           active,
         });
       }
@@ -162,6 +172,37 @@ export function SkillEditorPage() {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
+            </div>
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="skill-audience" className="font-ui text-bloom-aubergine/80">
+                  Visível no app para
+                </Label>
+                <select
+                  id="skill-audience"
+                  className={inputCls}
+                  value={audience}
+                  onChange={(e) => setAudience(e.target.value as SkillAudience)}
+                >
+                  <option value="all">Todos</option>
+                  <option value="leader">Líderes</option>
+                  <option value="collaborator">Colaboradores</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="skill-section" className="font-ui text-bloom-aubergine/80">
+                  Seção
+                </Label>
+                <select
+                  id="skill-section"
+                  className={inputCls}
+                  value={section}
+                  onChange={(e) => setSection(e.target.value === "2" ? 2 : 1)}
+                >
+                  <option value={1}>1 · Crescer como líder</option>
+                  <option value={2}>2 · Apoiar meu time</option>
+                </select>
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="skill-what" className="font-ui text-bloom-aubergine/80">

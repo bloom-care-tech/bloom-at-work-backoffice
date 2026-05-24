@@ -1,10 +1,12 @@
-export type SkillItemTypeApi = "audio" | "youtube" | "book" | "movie" | "text" | "pdf";
+export type SkillItemTypeApi = "audio" | "youtube" | "book" | "movie" | "text" | "exercise" | "references" | "pdf";
 
 export const SKILL_ITEM_TYPE_OPTIONS: { value: SkillItemTypeApi; label: string }[] = [
-  { value: "text", label: "Texto" },
+  { value: "text", label: "Artigo" },
+  { value: "exercise", label: "Exercício" },
+  { value: "references", label: "Referências" },
   { value: "audio", label: "Áudio" },
   { value: "pdf", label: "PDF" },
-  { value: "youtube", label: "YouTube" },
+  { value: "youtube", label: "Vídeo" },
   { value: "book", label: "Livro" },
   { value: "movie", label: "Filme" },
 ];

@@ -562,6 +562,8 @@ export interface SkillListItemDto {
   title: string;
   description: string | null;
   sortOrder: number;
+  audience: "all" | "leader" | "collaborator";
+  section: number;
   active: boolean;
   itemCount: number;
   createdAt: string;
@@ -578,6 +580,8 @@ export async function createSkill(body: {
   description?: string | null;
   whatItIs?: string;
   scienceSays?: string;
+  audience?: "all" | "leader" | "collaborator";
+  section?: number;
   active?: boolean;
 }) {
   return apiFetch<{ id: string; slug: string }>("/admin/habilidades", { method: "POST", auth: true, body: JSON.stringify(body) });
@@ -590,6 +594,7 @@ export interface SkillDetailDto extends SkillListItemDto {
     id: string;
     type: string;
     title: string;
+    subtitle: string | null;
     payload: Record<string, unknown>;
     sortOrder: number;
     createdAt: string;
@@ -603,7 +608,15 @@ export async function fetchSkillById(skillId: string) {
 
 export async function updateSkill(
   skillId: string,
-  body: Partial<{ title: string; description: string | null; whatItIs: string; scienceSays: string; active: boolean }>,
+  body: Partial<{
+    title: string;
+    description: string | null;
+    whatItIs: string;
+    scienceSays: string;
+    audience: "all" | "leader" | "collaborator";
+    section: number;
+    active: boolean;
+  }>,
 ) {
   return apiFetch<{ ok: true }>(`/admin/habilidades/${encodeURIComponent(skillId)}`, {
     method: "PATCH",
@@ -624,7 +637,10 @@ export async function reorderSkills(ids: string[]) {
   });
 }
 
-export async function createSkillItem(skillId: string, body: { type: string; title: string; payload: Record<string, unknown> }) {
+export async function createSkillItem(
+  skillId: string,
+  body: { type: string; title: string; subtitle?: string | null; payload: Record<string, unknown> },
+) {
   return apiFetch<{ id: string }>(`/admin/habilidades/${encodeURIComponent(skillId)}/itens`, {
     method: "POST",
     auth: true,
@@ -647,6 +663,7 @@ export interface SkillItemDetailDto {
   skillTitle: string;
   type: string;
   title: string;
+  subtitle: string | null;
   payload: Record<string, unknown>;
   sortOrder: number;
   createdAt: string;
@@ -657,8 +674,15 @@ export async function fetchSkillItemById(id: string) {
   return apiFetch<SkillItemDetailDto>(`/admin/itens-habilidade/${encodeURIComponent(id)}`, { auth: true });
 }
 
-export async function updateSkillItem(id: string, body: Partial<{ type: string; title: string; payload: Record<string, unknown> }>) {
-  return apiFetch<{ ok: true }>(`/admin/itens-habilidade/${id}`, { method: "PATCH", auth: true, body: JSON.stringify(body) });
+export async function updateSkillItem(
+  id: string,
+  body: Partial<{ type: string; title: string; subtitle: string | null; payload: Record<string, unknown> }>,
+) {
+  return apiFetch<{ ok: true }>(`/admin/itens-habilidade/${id}`, {
+    method: "PATCH",
+    auth: true,
+    body: JSON.stringify(body),
+  });
 }
 
 export async function deleteSkillItem(id: string) {

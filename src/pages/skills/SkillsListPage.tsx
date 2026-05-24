@@ -14,11 +14,41 @@ function swapIds(ids: string[], i: number, j: number): string[] {
   return next;
 }
 
+type SkillAudience = "all" | "leader" | "collaborator";
+
+function skillAudienceLabel(audience: SkillAudience): string {
+  if (audience === "all") return "Todos";
+  if (audience === "leader") return "Líderes";
+  return "Colaboradores";
+}
+
+function skillSectionLabel(section: number): string {
+  return section === 2 ? "2 · Apoiar meu time" : "1 · Crescer como líder";
+}
+
+function sameOrderingBucket(
+  a: { audience: SkillAudience; section: number } | undefined,
+  b: { audience: SkillAudience; section: number } | undefined,
+): boolean {
+  return Boolean(a && b && a.audience === b.audience && a.section === b.section);
+}
+
 export function SkillsListPage() {
   const qc = useQueryClient();
   const { data, isLoading, isError } = useQuery({ queryKey: ["skills"], queryFn: fetchSkills });
 
-  const sorted = useMemo(() => (data ?? []).slice().sort((a, b) => a.sortOrder - b.sortOrder), [data]);
+  const sorted = useMemo(
+    () =>
+      (data ?? [])
+        .slice()
+        .sort(
+          (a, b) =>
+            a.audience.localeCompare(b.audience) ||
+            a.section - b.section ||
+            a.sortOrder - b.sortOrder,
+        ),
+    [data],
+  );
   const [orderIds, setOrderIds] = useState<string[] | null>(null);
   const ids = orderIds ?? sorted.map((s) => s.id);
 
@@ -65,7 +95,7 @@ export function SkillsListPage() {
           <div>
             <h1 className="font-serif-display text-3xl text-bloom-aubergine">Habilidades socioemocionais</h1>
             <p className="font-ui text-sm text-bloom-aubergine/65 mt-1">
-              Ordene com as setas; edite metadados ou gerencie itens (áudio, vídeo, texto, livro, filme).
+              Defina público, seção, ordem e itens (áudio, vídeo, texto, livro, filme).
             </p>
           </div>
           <PillButton asLink="/habilidades/nova">Nova habilidade</PillButton>
@@ -83,6 +113,8 @@ export function SkillsListPage() {
                 <tr className="border-b border-bloom-aubergine/10 text-left text-bloom-aubergine/55 uppercase text-[11px] tracking-wide">
                   <th className="px-4 py-3 w-10">#</th>
                   <th className="px-4 py-3">Título</th>
+                  <th className="px-4 py-3">Público</th>
+                  <th className="px-4 py-3">Seção</th>
                   <th className="px-4 py-3">Itens</th>
                   <th className="px-4 py-3">Ativa</th>
                   <th className="px-4 py-3 text-right">Ações</th>
@@ -92,10 +124,14 @@ export function SkillsListPage() {
                 {ids.map((id, index) => {
                   const row = sorted.find((s) => s.id === id);
                   if (!row) return null;
+                  const previous = sorted.find((s) => s.id === ids[index - 1]);
+                  const next = sorted.find((s) => s.id === ids[index + 1]);
                   return (
                     <tr key={id} className="border-b border-bloom-aubergine/8 last:border-0">
                       <td className="px-4 py-3 text-bloom-aubergine/50">{index + 1}</td>
                       <td className="px-4 py-3">{row.title}</td>
+                      <td className="px-4 py-3">{skillAudienceLabel(row.audience)}</td>
+                      <td className="px-4 py-3">{skillSectionLabel(row.section)}</td>
                       <td className="px-4 py-3">{row.itemCount}</td>
                       <td className="px-4 py-3">{row.active ? "Sim" : "Não"}</td>
                       <td className="px-4 py-3">
@@ -105,7 +141,7 @@ export function SkillsListPage() {
                             variant="ghost"
                             size="icon"
                             className="h-9 w-9"
-                            disabled={index === 0 || reorder.isPending}
+                            disabled={index === 0 || !sameOrderingBucket(row, previous) || reorder.isPending}
                             onClick={() => move(index, -1)}
                             aria-label="Subir"
                           >
@@ -116,7 +152,7 @@ export function SkillsListPage() {
                             variant="ghost"
                             size="icon"
                             className="h-9 w-9"
-                            disabled={index === ids.length - 1 || reorder.isPending}
+                            disabled={index === ids.length - 1 || !sameOrderingBucket(row, next) || reorder.isPending}
                             onClick={() => move(index, 1)}
                             aria-label="Descer"
                           >
