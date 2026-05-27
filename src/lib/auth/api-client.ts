@@ -1,5 +1,10 @@
 import type { RefreshBody } from "./types";
-import { clearAuthState, readAccessToken, updatePersistedTokens } from "./session-storage";
+import {
+  clearAuthState,
+  readAccessToken,
+  readPersistedAuth,
+  updatePersistedTokens,
+} from "./session-storage";
 
 export function getApiBaseUrl(): string {
   let raw = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "").trim() ?? "";
@@ -74,29 +79,54 @@ function parseErrorMessage(body: unknown, status: number): string {
 
 let refreshInFlight: Promise<boolean> | null = null;
 
-async function postRefresh(): Promise<RefreshBody | null> {
-  const res = await fetch(joinUrl("/auth/refresh"), {
-    method: "POST",
-    credentials: "include",
-  });
-  if (!res.ok) return null;
-  return (await res.json()) as RefreshBody;
+type RefreshAttempt =
+  | { ok: true; body: RefreshBody }
+  | { ok: false; reason: "auth" | "network" };
+
+async function postRefresh(): Promise<RefreshAttempt> {
+  try {
+    const res = await fetch(joinUrl("/auth/refresh"), {
+      method: "POST",
+      credentials: "include",
+    });
+    if (res.ok) {
+      return { ok: true, body: (await res.json()) as RefreshBody };
+    }
+    if (res.status === 401 || res.status === 403) {
+      return { ok: false, reason: "auth" };
+    }
+    return { ok: false, reason: "network" };
+  } catch {
+    return { ok: false, reason: "network" };
+  }
 }
 
 async function tryRefresh(): Promise<boolean> {
   if (refreshInFlight) return refreshInFlight;
   refreshInFlight = (async () => {
     const next = await postRefresh();
-    if (!next) {
-      clearAuthState();
+    if (!next.ok) {
+      if (next.reason === "auth") {
+        clearAuthState();
+      }
       return false;
     }
-    updatePersistedTokens(next.accessToken);
+    updatePersistedTokens(next.body.accessToken);
     return true;
   })().finally(() => {
     refreshInFlight = null;
   });
   return refreshInFlight;
+}
+
+export type AccessTokenStatus = "ready" | "auth_failed" | "unavailable";
+
+/** Restores the in-memory access token from the httpOnly refresh cookie when needed. */
+export async function ensureAccessToken(): Promise<AccessTokenStatus> {
+  if (readAccessToken()) return "ready";
+  const ok = await tryRefresh();
+  if (ok) return "ready";
+  return readAccessToken() === null && !readPersistedAuth() ? "auth_failed" : "unavailable";
 }
 
 export type ApiFetchOptions = RequestInit & {

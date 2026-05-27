@@ -6,7 +6,7 @@ import {
   mediaExtrasFromPayload,
   payloadRecordFromUnknown,
   scientificRefsExtrasFromPayload,
-  toolkitExtrasFromPayload,
+  legacyToolkitListHtmlFromPayload,
   toolkitItensFromPayload,
   toolkitSectionTituloFromPayload,
 } from "./wave-content-editor-payload";
@@ -100,7 +100,7 @@ describe("mediaExtrasFromPayload", () => {
   });
 });
 
-describe("toolkit payload helpers", () => {
+describe("legacy toolkit payload helpers", () => {
   const sample = {
     kind: "toolkit",
     titulo: "Guia para líderes",
@@ -108,20 +108,23 @@ describe("toolkit payload helpers", () => {
       titulo: "Linha de cuidado — líder",
       itens: ["A", "B"],
     },
-    legacy: 1,
   };
 
-  it("reads toolkit section title and items", () => {
+  it("reads legacy toolkit section title and items", () => {
     expect(toolkitSectionTituloFromPayload(sample)).toBe("Linha de cuidado — líder");
     expect(toolkitItensFromPayload(sample)).toEqual(["A", "B"]);
   });
 
-  it("strips known toolkit keys for extras", () => {
-    expect(toolkitExtrasFromPayload(sample)).toEqual({ legacy: 1 });
+  it("converts legacy toolkit list into editor HTML", () => {
+    const html = legacyToolkitListHtmlFromPayload(sample);
+    expect(html).toContain("<h2>Linha de cuidado — líder</h2>");
+    expect(html).toContain("<li><p>A</p></li>");
+    expect(html).toContain("<li><p>B</p></li>");
   });
 
   it("returns one empty item row when toolkit is missing", () => {
     expect(toolkitItensFromPayload({})).toEqual([""]);
     expect(toolkitSectionTituloFromPayload({})).toBe("");
+    expect(legacyToolkitListHtmlFromPayload({})).toBeNull();
   });
 });

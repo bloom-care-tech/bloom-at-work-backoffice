@@ -184,11 +184,7 @@ export function mediaDescriptionFromPayload(payload: Record<string, unknown>): s
   return "";
 }
 
-const TOOLKIT_PAYLOAD_STRIP_KEYS = ["kind", "titulo", "toolkit"] as const;
-
-export function toolkitExtrasFromPayload(payload: Record<string, unknown>): Record<string, unknown> {
-  return omitKeys(payload, TOOLKIT_PAYLOAD_STRIP_KEYS);
-}
+const LEGACY_TOOLKIT_PAYLOAD_STRIP_KEYS = ["kind", "titulo", "toolkit"] as const;
 
 export function toolkitSectionTituloFromPayload(payload: Record<string, unknown>): string {
   const tk = payload.toolkit;
@@ -209,4 +205,18 @@ export function toolkitItensFromPayload(payload: Record<string, unknown>): strin
     }
   }
   return [""];
+}
+
+/** Converts legacy `payload.toolkit.itens` into editor HTML when opening old records. */
+export function legacyToolkitListHtmlFromPayload(payload: Record<string, unknown>): string | null {
+  const itens = toolkitItensFromPayload(payload)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (!itens.length) return null;
+  const sectionTitulo = toolkitSectionTituloFromPayload(payload).trim();
+  const parts: string[] = [];
+  if (sectionTitulo) parts.push(`<h2>${escapeHtml(sectionTitulo)}</h2>`);
+  const lis = itens.map((it) => `<li><p>${escapeHtml(it)}</p></li>`).join("");
+  parts.push(`<ul>${lis}</ul>`);
+  return parts.join("");
 }

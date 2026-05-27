@@ -151,10 +151,10 @@ function shouldShowDialogDescription(kind: WaveContentKindApi, payload: Record<s
   if (kind === "audio") {
     return hasTrilhaStyleDialogDescription(payload);
   }
-  if (kind === "video" || kind === "pdf" || kind === "toolkit") {
+  if (kind === "video" || kind === "pdf") {
     return false;
   }
-  if (kind === "article") {
+  if (kind === "article" || kind === "toolkit") {
     if (typeof payload.htmlUrl === "string" && payload.htmlUrl.trim()) return false;
     const html = typeof payload.bodyHtml === "string" ? payload.bodyHtml : "";
     return !htmlHasVisibleText(html);
@@ -228,7 +228,7 @@ function PreviewBody({
 
       {!payload && !error && <p className="font-ui text-sm text-bloom-aubergine/55">Nada a pré-visualizar.</p>}
 
-      {payload && kind === "article" && (
+      {payload && (kind === "article" || kind === "toolkit") && (
         <div className="space-y-3">
           {typeof payload.htmlUrl === "string" && payload.htmlUrl.trim() ? (
             <>
@@ -242,7 +242,7 @@ function PreviewBody({
           {payloadDescription(payload).trim() && htmlHasVisibleText(typeof payload.bodyHtml === "string" ? payload.bodyHtml : "") && (
             <p className="font-ui text-sm text-bloom-aubergine/75 leading-relaxed">{payloadDescription(payload)}</p>
           )}
-          {(() => {
+          {kind === "article" && (() => {
             const expert = resolveArticleExpert(payload, articleExperts);
             if (!expert) return null;
             const foto = expert.photoUrl?.trim();
@@ -276,7 +276,7 @@ function PreviewBody({
           ) : (
             <p className="font-ui text-sm text-bloom-aubergine/50 italic">Corpo vazio ou sem texto visível no HTML.</p>
           )}
-          {typeof payload.quote === "string" && payload.quote.trim()
+          {kind === "article" && typeof payload.quote === "string" && payload.quote.trim()
             ? (() => {
                 const attribution = quoteAttributionFromPayload(payload, articleExperts);
                 return (
@@ -429,40 +429,6 @@ function PreviewBody({
           )}
         </div>
       )}
-
-      {payload && kind === "toolkit" && (() => {
-        const tk = payload.toolkit;
-        let sectionTitulo = "";
-        let itens: string[] = [];
-        if (tk && typeof tk === "object" && !Array.isArray(tk)) {
-          const t = (tk as Record<string, unknown>).titulo;
-          sectionTitulo = typeof t === "string" ? t.trim() : "";
-          const raw = (tk as Record<string, unknown>).itens;
-          if (Array.isArray(raw) && raw.every((x): x is string => typeof x === "string")) {
-            itens = raw.map((s) => s.trim()).filter(Boolean);
-          }
-        }
-        const cardTitulo =
-          typeof payload.titulo === "string" && payload.titulo.trim() ? payload.titulo.trim() : title.trim();
-        const heading = sectionTitulo || cardTitulo;
-        return (
-          <div className="rounded-xl border border-bloom-aubergine/15 bg-bloom-cream-deep/60 p-4 space-y-3">
-            <p className="font-ui text-[10px] uppercase tracking-wider text-bloom-garnet">{heading || "Toolkit"}</p>
-            {itens.length > 0 ? (
-              <ul className="space-y-2">
-                {itens.map((it, i) => (
-                  <li key={i} className="flex gap-2 font-ui text-sm text-bloom-aubergine/85">
-                    <span className="text-bloom-garnet">•</span>
-                    {it}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="font-ui text-sm text-bloom-aubergine/50 italic">Sem itens no payload.</p>
-            )}
-          </div>
-        );
-      })()}
     </>
   );
 }

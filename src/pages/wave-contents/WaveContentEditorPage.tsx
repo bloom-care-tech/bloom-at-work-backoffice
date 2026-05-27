@@ -40,9 +40,7 @@ import {
   mediaUrlKeyForKind,
   refsFromPayload,
   scientificRefsExtrasFromPayload,
-  toolkitExtrasFromPayload,
-  toolkitItensFromPayload,
-  toolkitSectionTituloFromPayload,
+  legacyToolkitListHtmlFromPayload,
   type ArticleFormat,
   type RefFormRow,
 } from "@/pages/wave-contents/wave-content-editor-payload";
@@ -107,10 +105,6 @@ function buildPayload(
     refRows: RefFormRow[];
     scientificRefsDescription: string;
     refExtras: Record<string, unknown>;
-    contentTitle: string;
-    toolkitSectionTitulo: string;
-    toolkitItens: string[];
-    toolkitExtras: Record<string, unknown>;
     exerciseFormUrl: string;
     exerciseDescription: string;
     exerciseDisplayMode: "iframe" | "new_tab";
@@ -155,14 +149,21 @@ function buildPayload(
       };
     }
     case "toolkit": {
-      const titulo = ctx.contentTitle.trim();
-      const sectionTitulo = ctx.toolkitSectionTitulo.trim() || titulo;
-      const itens = ctx.toolkitItens.map((s) => s.trim()).filter(Boolean);
+      const d = ctx.articleDescription.trim();
+      if (ctx.articleFormat === "html") {
+        return {
+          ...articleExtrasForHtmlFormat(ctx.articleExtras),
+          articleFormat: "html",
+          htmlUrl: ctx.articleHtmlUrl.trim(),
+          displayMode: "iframe",
+          ...(d ? { description: d } : {}),
+        };
+      }
       return {
-        ...ctx.toolkitExtras,
-        kind: "toolkit",
-        titulo,
-        toolkit: { titulo: sectionTitulo, itens },
+        ...ctx.articleExtras,
+        articleFormat: "editor",
+        bodyHtml: ctx.articleHtml,
+        ...(d ? { description: d } : {}),
       };
     }
     case "exercise": {
@@ -238,10 +239,6 @@ export function WaveContentEditorPage() {
   const [scientificRefsDescription, setScientificRefsDescription] = useState("");
   const [refExtras, setRefExtras] = useState<Record<string, unknown>>({});
 
-  const [toolkitSectionTitulo, setToolkitSectionTitulo] = useState("");
-  const [toolkitItens, setToolkitItens] = useState<string[]>([""]);
-  const [toolkitExtras, setToolkitExtras] = useState<Record<string, unknown>>({});
-
   const [showPreview, setShowPreview] = useState(false);
   const [mediaUploading, setMediaUploading] = useState(false);
   const [articleHtmlUploading, setArticleHtmlUploading] = useState(false);
@@ -262,7 +259,7 @@ export function WaveContentEditorPage() {
     }
     if (prev === kind) return;
     prevKindRef.current = kind;
-    if (kind === "article") {
+    if (kind === "article" || kind === "toolkit") {
       setArticleFormat("editor");
       setArticleHtml("<p></p>");
       setArticleHtmlUrl("");
@@ -280,11 +277,6 @@ export function WaveContentEditorPage() {
       setRefRows([emptyRefRow()]);
       setScientificRefsDescription("");
       setRefExtras({});
-    }
-    if (kind === "toolkit") {
-      setToolkitSectionTitulo("");
-      setToolkitItens([""]);
-      setToolkitExtras({});
     }
     if (kind === "exercise") {
       setExerciseFormUrl("");
@@ -322,9 +314,19 @@ export function WaveContentEditorPage() {
       setScientificRefsDescription(mediaDescriptionFromPayload(p));
       setRefExtras(scientificRefsExtrasFromPayload(p));
     } else if (k === "toolkit") {
-      setToolkitSectionTitulo(toolkitSectionTituloFromPayload(p));
-      setToolkitItens(toolkitItensFromPayload(p));
-      setToolkitExtras(toolkitExtrasFromPayload(p));
+      const format = articleFormatFromPayload(p);
+      setArticleFormat(format);
+      if (format === "html") {
+        setArticleHtml("<p></p>");
+        setArticleHtmlUrl(articleHtmlUrlFromPayload(p));
+      } else {
+        const legacyHtml = legacyToolkitListHtmlFromPayload(p);
+        setArticleHtml(legacyHtml ?? extractArticleEditorHtml(p));
+        setArticleHtmlUrl("");
+      }
+      setArticleDescription(mediaDescriptionFromPayload(p));
+      setArticleExtras(articleExtrasFromPayload(p));
+      setArticleEditorNonce((n) => n + 1);
     } else if (k === "exercise") {
       setExerciseFormUrl(typeof p.externalFormUrl === "string" ? p.externalFormUrl : "");
       setExerciseDescription(mediaDescriptionFromPayload(p));
@@ -347,10 +349,6 @@ export function WaveContentEditorPage() {
         refRows,
         scientificRefsDescription,
         refExtras,
-        contentTitle: title.trim(),
-        toolkitSectionTitulo,
-        toolkitItens,
-        toolkitExtras,
         exerciseFormUrl,
         exerciseDescription,
         exerciseDisplayMode,
@@ -378,9 +376,6 @@ export function WaveContentEditorPage() {
     scientificRefsDescription,
     refExtras,
     title,
-    toolkitSectionTitulo,
-    toolkitItens,
-    toolkitExtras,
     exerciseFormUrl,
     exerciseDescription,
     exerciseDisplayMode,
@@ -431,10 +426,6 @@ export function WaveContentEditorPage() {
           refRows,
           scientificRefsDescription,
           refExtras,
-          contentTitle: title.trim(),
-          toolkitSectionTitulo,
-          toolkitItens,
-          toolkitExtras,
           exerciseFormUrl,
           exerciseDescription,
           exerciseDisplayMode,
@@ -452,7 +443,7 @@ export function WaveContentEditorPage() {
       if ((kind === "audio" || kind === "pdf") && !mediaUrl.trim()) {
         throw new Error("Informe uma URL externa ou envie um ficheiro.");
       }
-      if (kind === "article" && articleFormat === "html" && !articleHtmlUrl.trim()) {
+      if ((kind === "article" || kind === "toolkit") && articleFormat === "html" && !articleHtmlUrl.trim()) {
         throw new Error("Informe uma URL externa ou envie um ficheiro HTML.");
       }
       if (kind === "exercise" && !exerciseFormUrl.trim()) {
@@ -552,7 +543,7 @@ export function WaveContentEditorPage() {
   async function onArticleHtmlFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
-    if (!file || kind !== "article" || articleFormat !== "html") return;
+    if (!file || (kind !== "article" && kind !== "toolkit") || articleFormat !== "html") return;
     setArticleHtmlUploading(true);
     try {
       const { url } = await uploadEditorialMediaAsset(file, { context: "wave", kind: "html" });
@@ -585,9 +576,7 @@ export function WaveContentEditorPage() {
         <WaveHierarchyBreadcrumb items={breadcrumbs} />
         <h1 className="font-serif-display text-3xl text-bloom-aubergine mt-1">{isNew ? "Novo conteúdo" : "Editar conteúdo"}</h1>
         <p className="font-ui text-sm text-bloom-aubergine/65 mt-1">
-          Artigos: Editor (TinyMCE) ou HTML embutido por URL/envio. Exercício: URL HTTPS do formulário (Typeform, Tally, etc.). Vídeo: YouTube ou Mux. Áudio/PDF: URL ou envio; referências: tabela; toolkit: lista de itens (campos{" "}
-          <code className="text-[11px]">kind</code>, <code className="text-[11px]">titulo</code>, <code className="text-[11px]">toolkit</code>
-          ).
+          Artigos e toolkit: Editor (TinyMCE) ou HTML embutido por URL/envio. Exercício: URL HTTPS do formulário (Typeform, Tally, etc.). Vídeo: YouTube ou Mux. Áudio/PDF: URL ou envio; referências: tabela.
         </p>
       </FadeIn>
       {!isNew && isLoading && <p className="font-ui text-sm text-bloom-aubergine/60">Carregando…</p>}
@@ -622,7 +611,7 @@ export function WaveContentEditorPage() {
               <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} />
             </div>
 
-            {kind === "article" && (
+            {(kind === "article" || kind === "toolkit") && (
               <div className="space-y-4" data-article-editor={articleFormat}>
                 <div className="space-y-2">
                   <Label className="font-ui text-bloom-aubergine/80">Descrição</Label>
@@ -654,11 +643,11 @@ export function WaveContentEditorPage() {
                     <option value="html">HTML</option>
                   </select>
                   <p className="font-ui text-xs text-bloom-aubergine/55">
-                    <strong className="font-medium text-bloom-aubergine/75">Editor</strong> mantém o artigo editável aqui.{" "}
+                    <strong className="font-medium text-bloom-aubergine/75">Editor</strong> mantém o conteúdo editável aqui.{" "}
                     <strong className="font-medium text-bloom-aubergine/75">HTML</strong> usa um ficheiro ou URL externa embutida no app.
                   </p>
                 </div>
-                {articleFormat === "editor" && (
+                {kind === "article" && articleFormat === "editor" && (
                   <>
                     <div className="space-y-2">
                       <Label className="font-ui text-bloom-aubergine/80">Especialista (autor do artigo)</Label>
@@ -723,12 +712,14 @@ export function WaveContentEditorPage() {
                 )}
                 {articleFormat === "editor" ? (
                   <div className="space-y-2">
-                    <Label className="font-ui text-bloom-aubergine/80">Corpo do artigo</Label>
+                    <Label className="font-ui text-bloom-aubergine/80">
+                      {kind === "toolkit" ? "Corpo do toolkit" : "Corpo do artigo"}
+                    </Label>
                     <p className="font-ui text-xs text-bloom-aubergine/55">
                       Gravado como <code className="text-[11px]">bodyHtml</code>. Edição visual e código-fonte estão no editor (botão &quot;code&quot; / fullscreen).
                     </p>
                     <WaveArticleTinyMceEditor
-                      editorKey={`article-${id ?? "new"}-${articleEditorNonce}`}
+                      editorKey={`${kind}-${id ?? "new"}-${articleEditorNonce}`}
                       value={articleHtml}
                       onChange={setArticleHtml}
                       disabled={save.isPending}
@@ -985,67 +976,6 @@ export function WaveContentEditorPage() {
                   <Plus size={18} weight="bold" />
                   Adicionar referência
                 </Button>
-              </div>
-            )}
-
-            {kind === "toolkit" && (
-              <div className="space-y-4">
-                <p className="font-ui text-xs text-bloom-aubergine/55">
-                  O campo <strong className="font-medium text-bloom-aubergine/75">Título</strong> acima é gravado no registo e repetido em{" "}
-                  <code className="text-[11px]">payload.titulo</code> (cartão na trilha). O bloco abaixo preenche{" "}
-                  <code className="text-[11px]">payload.toolkit</code>.
-                </p>
-                <div className="space-y-2">
-                  <Label className="font-ui text-bloom-aubergine/80">Toolkit — título do bloco</Label>
-                  <input
-                    className={inputCls}
-                    value={toolkitSectionTitulo}
-                    onChange={(e) => setToolkitSectionTitulo(e.target.value)}
-                    placeholder="Ex.: Linha de cuidado — líder"
-                  />
-                  <p className="font-ui text-xs text-bloom-aubergine/55">
-                    Gravado como <code className="text-[11px]">toolkit.titulo</code>. Se ficar vazio, usa o mesmo texto do título do conteúdo.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label className="font-ui text-bloom-aubergine/80">Itens</Label>
-                  <p className="font-ui text-xs text-bloom-aubergine/55">Um campo por linha da lista (gravado como <code className="text-[11px]">toolkit.itens</code>).</p>
-                  <div className="space-y-3">
-                    {toolkitItens.map((line, i) => (
-                      <div key={i} className="flex gap-2 items-start">
-                        <input
-                          className={inputCls}
-                          value={line}
-                          onChange={(e) =>
-                            setToolkitItens((rows) => rows.map((r, j) => (j === i ? e.target.value : r)))
-                          }
-                          placeholder="Texto do item"
-                        />
-                        {toolkitItens.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="shrink-0 h-11 w-11 text-bloom-aubergine/60 hover:text-bloom-garnet"
-                            aria-label="Remove item"
-                            onClick={() => setToolkitItens((rows) => rows.filter((_, j) => j !== i))}
-                          >
-                            <Trash size={18} />
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="rounded-full gap-2"
-                    onClick={() => setToolkitItens((rows) => [...rows, ""])}
-                  >
-                    <Plus size={18} weight="bold" />
-                    Adicionar item
-                  </Button>
-                </div>
               </div>
             )}
 

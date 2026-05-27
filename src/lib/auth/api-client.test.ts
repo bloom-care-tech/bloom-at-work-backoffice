@@ -1,4 +1,4 @@
-import { apiFetch } from "./api-client";
+import { apiFetch, ensureAccessToken } from "./api-client";
 import * as sessionStorage from "./session-storage";
 
 describe("api-client", () => {
@@ -89,5 +89,38 @@ describe("api-client", () => {
     const [, init] = vi.mocked(globalThis.fetch).mock.calls[0]!;
     const headers = new Headers((init as RequestInit).headers);
     expect(headers.get("Content-Type")).toBeNull();
+  });
+
+  it("ensureAccessToken returns unavailable on network error without clearing persisted auth", async () => {
+    const persisted = {
+      kind: "backoffice" as const,
+      me: {
+        id: "u1",
+        email: "a@b.com",
+        role: "admin",
+        name: "Admin",
+        displayName: null,
+        firstAccessCompleted: true,
+        company: { id: "c1", name: "Bloom", slug: "bloom" },
+      },
+      createdAt: new Date().toISOString(),
+    };
+    vi.spyOn(sessionStorage, "readPersistedAuth").mockReturnValue(persisted);
+    vi.spyOn(sessionStorage, "readAccessToken").mockReturnValue(null);
+    const clearSpy = vi.spyOn(sessionStorage, "clearAuthState");
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new TypeError("Failed to fetch"));
+
+    await expect(ensureAccessToken()).resolves.toBe("unavailable");
+    expect(clearSpy).not.toHaveBeenCalled();
+  });
+
+  it("ensureAccessToken clears auth on 401 refresh response", async () => {
+    vi.spyOn(sessionStorage, "readPersistedAuth").mockReturnValue(null);
+    vi.spyOn(sessionStorage, "readAccessToken").mockReturnValue(null);
+    const clearSpy = vi.spyOn(sessionStorage, "clearAuthState");
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 401 }));
+
+    await expect(ensureAccessToken()).resolves.toBe("auth_failed");
+    expect(clearSpy).toHaveBeenCalled();
   });
 });
